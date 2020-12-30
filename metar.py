@@ -114,7 +114,7 @@ pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT, brightness = LED_BRIGHTNESS_DIM i
 
 # Read the airports file to retrieve list of airports and use as order for LEDs
 #os.path.dirname(__file__) or /home/pi/
-with open('/home/pi/'+'airports') as f:
+with open('/home/pi/airports') as f:
 	data=f.read()
 airport_dict = json.loads(data)
 
@@ -184,8 +184,8 @@ for metar in root.iter('METAR'):
 # 	+ str(lightning))
 	conditionDict[stationId] = { "flightCategory" : flightCategory, "windDir": windDir, "windSpeed" : windSpeed, "windGustSpeed": windGustSpeed, "windGust": windGust, "vis": vis, "obs" : obs, "tempC" : tempC, "dewpointC" : dewpointC, "altimHg" : altimHg, "lightning": lightning, "skyConditions" : skyConditions, "obsTime": obsTime }
 	stationList.append(stationId)
-	if (airport_dict[stationId]):
-		displayList.append(stationId)
+	if (airport_dict[stationId]['display']):
+		displayList.append((stationId,airport_dict[stationId]['LED']))
 
 # print(conditionDict)
 
@@ -242,9 +242,9 @@ while looplimit > 0:
 	if disp is not None:
 		if displayTime <= DISPLAY_ROTATION_SPEED:
 			if displayTime <= DISPLAY_ROTATION_SPEED/2:
-				displaymetar.outputMetar1(disp, displayList[displayAirportCounter], conditionDict.get(displayList[displayAirportCounter], None))
+				displaymetar.outputMetar1(disp, displayList[displayAirportCounter], conditionDict.get(displayList[displayAirportCounter][0], None))
 			else:
-				displaymetar.outputMetar2(disp, displayList[displayAirportCounter], conditionDict.get(displayList[displayAirportCounter], None))
+				displaymetar.outputMetar2(disp, displayList[displayAirportCounter], conditionDict.get(displayList[displayAirportCounter][0], None))
 			displayTime += BLINK_SPEED
 		else:
 			displayTime = 0.0

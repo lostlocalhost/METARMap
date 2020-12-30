@@ -58,7 +58,9 @@ def outputMetar1(disp, station, condition):
 	
 	#draw.line([(x + 85, top + 18), (x + 85, bottom)], fill=255, width=1)
 	central = timezone('US/Central')
-	draw1.text((x, top + 0), station + "-" + condition["flightCategory"], font=fontLarge, fill=255)
+	draw1.text((x, top + 0), station[0] + "-" + condition["flightCategory"], font=fontLarge, fill=255)
+	draw1.text((x+110, top + 0), str(station[1]), font=fontSmall, fill=255)
+	
 	draw1.text((x, top + 20), condition["windDir"] + "@" + str(condition["windSpeed"]) + (("G" + str(condition["windGustSpeed"]) if condition["windGust"] else "") + "/" +str(condition["vis"]) + "SM "), font=fontMed, fill=255)
 	draw1.text((x, top + 35), str(condition["altimHg"]) + "Hg" + " " + str(condition["tempC"]) + "/" + str(condition["dewpointC"]) + "C", font=fontMed, fill=255)
 	draw1.text((x, top + 50), condition["obsTime"].astimezone(central).strftime("%H:%MC") + " " + condition["obsTime"].strftime("%H:%MZ"), font=fontSmall, fill=255)
@@ -80,7 +82,9 @@ def outputMetar2(disp, station, condition):
 	bottom = height - padding
 	
 	draw2.rectangle((0, 0, width, height), outline=0, fill=0)
-	draw2.text((x, top + 0), station + "-" + condition["flightCategory"], font=fontLarge, fill=255)	
+	draw2.text((x, top + 0), station[0] + "-" + condition["flightCategory"], font=fontLarge, fill=255)
+	draw2.text((x+110, top + 0), str(station[1]), font=fontSmall, fill=255)
+	
 	yOff = 18
 	xOff = 0
 	NewLine = False
@@ -93,6 +97,6 @@ def outputMetar2(disp, station, condition):
 		else:
 			xOff = 65
 			NewLine = True
-	draw2.text((x, top + 50), condition["obs"], font=fontMed, fill=255)
+	draw2.text((x, yOff + 12), condition["obs"], font=fontMed, fill=255)
 	disp.image(image2)
 	disp.show()
