@@ -1,6 +1,11 @@
+### LLH1.4.3 (2020-12-30)
+- Updated input file to json.
+- Also finished the update for the 2 cycles of screen info. Includes custom text to display right justified on header line. This should be limited to 4 chars in the 'text' parm in the airports input file.
+
 ### LLH1.4.2 (2020-12-28)
 - Added two cycles to each iaco. It will use half the DISPLAY_ROTATION_SPEED to cycle to the second screen.
 - Updated some of the values, including local time along with Zulu
+- Split out the light list and the display list to be able to control what places get displayed.
 
 ### 1.4.1 (2020-12-16)
 - Small bugfix for CLR skycondition (which doesn't have a cloudbase)

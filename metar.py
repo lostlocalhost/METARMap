@@ -185,7 +185,7 @@ for metar in root.iter('METAR'):
 	conditionDict[stationId] = { "flightCategory" : flightCategory, "windDir": windDir, "windSpeed" : windSpeed, "windGustSpeed": windGustSpeed, "windGust": windGust, "vis": vis, "obs" : obs, "tempC" : tempC, "dewpointC" : dewpointC, "altimHg" : altimHg, "lightning": lightning, "skyConditions" : skyConditions, "obsTime": obsTime }
 	stationList.append(stationId)
 	if (airport_dict[stationId]['display']):
-		displayList.append((stationId,airport_dict[stationId]['LED']))
+		displayList.append((stationId,airport_dict[stationId]['text']))
 
 # print(conditionDict)
 

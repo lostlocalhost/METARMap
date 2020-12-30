@@ -3,11 +3,11 @@ Forked from prueker/METARMap
   
 Items updated from orig:  
 * The screen was cluttered, so I added a cycle within a given airport to split the info over two screens.
-** Currently it will use half of the DISPLAY_ROTATION_SPEED to cycle. 
-* Tweaked with the display items, specifically now shows time in local (manually set) and Zulu
+*  Currently it will use half of the DISPLAY_ROTATION_SPEED to cycle. 
+* Tweaked with the display items, including adding local update time, and right justified custom text to header.
 * Separated out the light list and the display update list. I might have n LEDS I want updated, but only want see the METAR for a few.
 * Changed airports file to json, as I expect to be adding in more input params there in the future.
-** If adding in Nulls for spacing, a code of NULLn where n is unique must be used
+*  If adding in Nulls for spacing, a code of NULLn where n is unique must be used
   
 TODO:  
 * Multi/bigger screen support
