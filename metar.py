@@ -26,7 +26,7 @@ except ImportError:
 # NeoPixel LED Configuration
 LED_COUNT		= 50			# Number of LED pixels.
 LED_PIN			= board.D18		# GPIO pin connected to the pixels (18 is PCM).
-LED_BRIGHTNESS		= 0.5			# Float from 0.0 (min) to 1.0 (max)
+LED_BRIGHTNESS		= 0.75			# Float from 0.0 (min) to 1.0 (max)
 LED_ORDER		= neopixel.GRB		# Strip type and colour ordering
 
 COLOR_VFR		= (255,0,0)		# Green
@@ -44,7 +44,7 @@ COLOR_LIGHTNING		= (255,255,255)		# White
 # Do you want the METARMap to be static to just show flight conditions, or do you also want blinking/fading based on current wind conditions
 ACTIVATE_WINDCONDITION_ANIMATION = True	# Set this to False for Static or True for animated wind conditions
 #Do you want the Map to Flash white for lightning in the area
-ACTIVATE_LIGHTNING_ANIMATION = True		# Set this to False for Static or True for animated Lightning
+ACTIVATE_LIGHTNING_ANIMATION = False		# Set this to False for Static or True for animated Lightning
 # Fade instead of blink
 FADE_INSTEAD_OF_BLINK	= True			# Set to False if you want blinking
 # Blinking Windspeed Threshold
@@ -67,7 +67,7 @@ LOCATION 		= "Dallas"		# Nearby city for Sunset/Sunrise timing, refer to https:/
 
 # ----- External Display support -----
 ACTIVATE_EXTERNAL_METAR_DISPLAY = True		# Set to True if you want to display METAR conditions to a small external display
-DISPLAY_ROTATION_SPEED = 4.0			# Float in seconds, e.g 2.0 for two seconds
+DISPLAY_ROTATION_SPEED = 6.0			# Float in seconds, e.g 2.0 for two seconds
 
 # ---------------------------------------------------------------------------
 # ------------END OF CONFIGURATION-------------------------------------------
@@ -134,7 +134,7 @@ displayList=[]
 for metar in root.iter('METAR'):
 	stationId = metar.find('station_id').text
 	if metar.find('flight_category') is None:
-		print("Missing flight condition, skipping.")
+		print("Missing flight condition, skipping " + stationId)
 		continue
 	flightCategory = metar.find('flight_category').text
 	windDir = ""

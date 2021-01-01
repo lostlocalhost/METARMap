@@ -1,3 +1,8 @@
+### LLH1.5 (2020-01-01) Happy new year!
+- Finished build for first METARMap. (yea)
+- Updated all config to initial personal needs for board.
+- Added images of build.
+
 ### LLH1.4.3 (2020-12-30)
 - Updated input file to json.
 - Also finished the update for the 2 cycles of screen info. Includes custom text to display right justified on header line. This should be limited to 4 chars in the 'text' parm in the airports input file.
