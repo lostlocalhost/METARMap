@@ -8,10 +8,7 @@ Items updated from orig:
 * Separated out the light list and the display update list. I might have n LEDS I want updated, but only want see the METAR for a few.
 * Changed airports file to json, as I expect to be adding in more input params there in the future.
 *  If adding in Nulls for spacing, a code of NULLn where n is unique must be used
-  
-TODO:  
-* Multi/bigger screen support
-* Lots of cleanup
+* In cases where weather updates are not found, or no airports are selected to be displayed, a message will show in the display to check these items
 
 # METARMap
 Raspberry Pi project to visualize flight conditions on a map using WS8211 LEDs addressed via NeoPixel

@@ -1,52 +1,252 @@
 {
-"KETN"	:{"text":0,"display":false,"visits":0},
-"KBKD"	:{"text":1,"display":false,"visits":0},
-"NULL2"	:{"text":2,"display":false,"visits":0},
-"KRPH" 	:{"text":3,"display":false,"visits":0},
-"NULL4"	:{"text":4,"display":false,"visits":0},
-"NULL5"	:{"text":5,"display":false,"visits":0},
-"KSPS"	:{"text":6,"display":false,"visits":0},
-"NULL7"	:{"text":7,"display":false,"visits":0},
-"KF05" 	:{"text":8,"display":false,"visits":0},
-"NULL9"	:{"text":9,"display":false,"visits":0},
-"NULL10":{"text":10,"display":false,"visits":0},
-"KDUC" 	:{"text":11,"display":false,"visits":1},
-"NULL12":{"text":12,"display":false,"visits":1},
-"NULL13":{"text":13,"display":false,"visits":0},
-"K0F2" 	:{"text":14,"display":false,"visits":0},
-"KXBP" 	:{"text":15,"display":false,"visits":0},
-"NULL16":{"text":16,"display":false,"visits":0},
-"KMWL" 	:{"text":17,"display":false,"visits":0},
-"KGDJ" 	:{"text":18,"display":false,"visits":3},
-"KCPT" 	:{"text":19,"display":false,"visits":0},
-"KFWS" 	:{"text":20,"display":false,"visits":0},
-"KJWY" 	:{"text":21,"display":false,"visits":0},
-"KRBD" 	:{"text":22,"display":false,"visits":0},
-"KDFW" 	:{"text":"CNRL","display":false,"visits":0},
-"KAFW" 	:{"text":24,"display":false,"visits":1},
-"KDTO" 	:{"text":"NW","display":false,"visits":3},
-"NULL26":{"text":26,"display":false,"visits":0},
-"KGLE"	:{"text":27,"display":false,"visits":0},
-"NULL28":{"text":28,"display":false,"visits":0},
-"K1F0"	:{"text":29,"display":false,"visits":0},
-"NULL30":{"text":30,"display":false,"visits":0},
-"KGYI"	:{"text":31,"display":false,"visits":0},
-"KDUA"	:{"text":32,"display":false,"visits":0},
-"KF00"	:{"text":33,"display":false,"visits":0},
-"NULL34":{"text":34,"display":false,"visits":0},
-"KPRX"	:{"text":35,"display":false,"visits":0},
-"NULL36":{"text":36,"display":false,"visits":0},
-"KSLR"	:{"text":37,"display":false,"visits":0},
-"KGVT"	:{"text":"BASE","display":true,"visits":50},
-"KF46"	:{"text":"HOME","display":true,"visits":10},
-"KTKI"	:{"text":"N","display":false,"visits":3},
-"KADS"	:{"text":"CNRL","display":false,"visits":2},
-"KHQZ"	:{"text":42,"display":false,"visits":0},
-"KTRL"	:{"text":43,"display":false,"visits":0},
-"NULL44":{"text":44,"display":false,"visits":0},
-"KJDD"	:{"text":45,"display":false,"visits":0},
-"KTYR"	:{"text":"SE","display":false,"visits":2},
-"KF44"	:{"text":47,"display":false,"visits":0},
-"NULL48":{"text":48,"display":false,"visits":0},
-"KCRS"	:{"text":"S","display":false,"visits":0}
+    "KETN": {
+        "text": 0,
+        "display": false,
+        "visits": 0
+    },
+    "KBKD": {
+        "text": 1,
+        "display": false,
+        "visits": 0
+    },
+    "NULL2": {
+        "text": 2,
+        "display": false,
+        "visits": 0
+    },
+    "KRPH": {
+        "text": 3,
+        "display": false,
+        "visits": 0
+    },
+    "NULL4": {
+        "text": 4,
+        "display": false,
+        "visits": 0
+    },
+    "NULL5": {
+        "text": 5,
+        "display": false,
+        "visits": 0
+    },
+    "KSPS": {
+        "text": 6,
+        "display": false,
+        "visits": 0
+    },
+    "NULL7": {
+        "text": 7,
+        "display": false,
+        "visits": 0
+    },
+    "KF05": {
+        "text": 8,
+        "display": false,
+        "visits": 0
+    },
+    "NULL9": {
+        "text": 9,
+        "display": false,
+        "visits": 0
+    },
+    "NULL10": {
+        "text": 10,
+        "display": false,
+        "visits": 0
+    },
+    "KDUC": {
+        "text": 11,
+        "display": false,
+        "visits": 1
+    },
+    "NULL12": {
+        "text": 12,
+        "display": false,
+        "visits": 1
+    },
+    "NULL13": {
+        "text": 13,
+        "display": false,
+        "visits": 0
+    },
+    "K0F2": {
+        "text": 14,
+        "display": false,
+        "visits": 0
+    },
+    "KXBP": {
+        "text": 15,
+        "display": false,
+        "visits": 0
+    },
+    "NULL16": {
+        "text": 16,
+        "display": false,
+        "visits": 0
+    },
+    "KMWL": {
+        "text": 17,
+        "display": false,
+        "visits": 0
+    },
+    "KGDJ": {
+        "text": 18,
+        "display": false,
+        "visits": 3
+    },
+    "KCPT": {
+        "text": 19,
+        "display": false,
+        "visits": 0
+    },
+    "KFWS": {
+        "text": 20,
+        "display": false,
+        "visits": 0
+    },
+    "KJWY": {
+        "text": 21,
+        "display": false,
+        "visits": 0
+    },
+    "KRBD": {
+        "text": 22,
+        "display": false,
+        "visits": 0
+    },
+    "KDFW": {
+        "text": "CNRL",
+        "display": false,
+        "visits": 0
+    },
+    "KAFW": {
+        "text": 24,
+        "display": false,
+        "visits": 1
+    },
+    "KDTO": {
+        "text": "NW",
+        "display": false,
+        "visits": 3
+    },
+    "NULL26": {
+        "text": 26,
+        "display": false,
+        "visits": 0
+    },
+    "KGLE": {
+        "text": 27,
+        "display": false,
+        "visits": 0
+    },
+    "NULL28": {
+        "text": 28,
+        "display": false,
+        "visits": 0
+    },
+    "K1F0": {
+        "text": 29,
+        "display": false,
+        "visits": 0
+    },
+    "NULL30": {
+        "text": 30,
+        "display": false,
+        "visits": 0
+    },
+    "KGYI": {
+        "text": 31,
+        "display": false,
+        "visits": 0
+    },
+    "KDUA": {
+        "text": 32,
+        "display": false,
+        "visits": 0
+    },
+    "KF00": {
+        "text": 33,
+        "display": false,
+        "visits": 0
+    },
+    "NULL34": {
+        "text": 34,
+        "display": false,
+        "visits": 0
+    },
+    "KPRX": {
+        "text": 35,
+        "display": false,
+        "visits": 0
+    },
+    "NULL36": {
+        "text": 36,
+        "display": false,
+        "visits": 0
+    },
+    "KSLR": {
+        "text": 37,
+        "display": false,
+        "visits": 0
+    },
+    "KGVT": {
+        "text": "BASE",
+        "display": true,
+        "visits": 50
+    },
+    "KF46": {
+        "text": "HOME",
+        "display": true,
+        "visits": 10
+    },
+    "KTKI": {
+        "text": "N",
+        "display": false,
+        "visits": 3
+    },
+    "KADS": {
+        "text": "CNRL",
+        "display": false,
+        "visits": 2
+    },
+    "KHQZ": {
+        "text": 42,
+        "display": false,
+        "visits": 0
+    },
+    "KTRL": {
+        "text": 43,
+        "display": false,
+        "visits": 0
+    },
+    "NULL44": {
+        "text": 44,
+        "display": false,
+        "visits": 0
+    },
+    "KJDD": {
+        "text": 45,
+        "display": false,
+        "visits": 0
+    },
+    "KTYR": {
+        "text": "SE",
+        "display": false,
+        "visits": 2
+    },
+    "KF44": {
+        "text": 47,
+        "display": false,
+        "visits": 0
+    },
+    "NULL48": {
+        "text": 48,
+        "display": false,
+        "visits": 0
+    },
+    "KCRS": {
+        "text": "S",
+        "display": false,
+        "visits": 0
+    }
 }

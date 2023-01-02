@@ -9,13 +9,13 @@ import datetime
 import json
 import os
 try:
-	import astral
+    import astral
 except ImportError:
-	astral = None
+    astral = None
 try:
-	import displaymetar
+    import displaymetar
 except ImportError:
-	displaymetar = None
+    displaymetar = None
 
 # metar.py script iteration 1.4.1
 
@@ -77,32 +77,32 @@ print("Running metar.py at " + datetime.datetime.now().strftime('%d/%m/%Y %H:%M'
 
 # Figure out sunrise/sunset times if astral is being used
 if astral is not None and USE_SUNRISE_SUNSET:
-	try:
-		# For older clients running python 3.5 which are using Astral 1.10.1
-		ast = astral.Astral()
-		try:
-			city = ast[LOCATION]
-		except KeyError:
-			print("Error: Location not recognized, please check list of supported cities and reconfigure")
-		else:
-			print(city)
-			sun = city.sun(date = datetime.datetime.now().date(), local = True)
-			BRIGHT_TIME_START = sun['sunrise'].time()
-			DIM_TIME_START = sun['sunset'].time()
-	except AttributeError:
-		# newer Raspberry Pi versions using Python 3.6+ using Astral 2.2
-		import astral.geocoder
-		import astral.sun
-		try:
-			city = astral.geocoder.lookup(LOCATION, astral.geocoder.database())
-		except KeyError:
-			print("Error: Location not recognized, please check list of supported cities and reconfigure")
-		else:
-			print(city)
-			sun = astral.sun.sun(city.observer, date = datetime.datetime.now().date(), tzinfo=city.timezone)
-			BRIGHT_TIME_START = sun['sunrise'].time()
-			DIM_TIME_START = sun['sunset'].time()
-	print("Sunrise:" + BRIGHT_TIME_START.strftime('%H:%M') + " Sunset:" + DIM_TIME_START.strftime('%H:%M'))
+    try:
+        # For older clients running python 3.5 which are using Astral 1.10.1
+        ast = astral.Astral()
+        try:
+            city = ast[LOCATION]
+        except KeyError:
+            print("Error: Location not recognized, please check list of supported cities and reconfigure")
+        else:
+            print(city)
+            sun = city.sun(date = datetime.datetime.now().date(), local = True)
+            BRIGHT_TIME_START = sun['sunrise'].time()
+            DIM_TIME_START = sun['sunset'].time()
+    except AttributeError:
+        # newer Raspberry Pi versions using Python 3.6+ using Astral 2.2
+        import astral.geocoder
+        import astral.sun
+        try:
+            city = astral.geocoder.lookup(LOCATION, astral.geocoder.database())
+        except KeyError:
+            print("Error: Location not recognized, please check list of supported cities and reconfigure")
+        else:
+            print(city)
+            sun = astral.sun.sun(city.observer, date = datetime.datetime.now().date(), tzinfo=city.timezone)
+            BRIGHT_TIME_START = sun['sunrise'].time()
+            DIM_TIME_START = sun['sunset'].time()
+    print("Sunrise:" + BRIGHT_TIME_START.strftime('%H:%M') + " Sunset:" + DIM_TIME_START.strftime('%H:%M'))
 
 # Initialize the LED strip
 bright = BRIGHT_TIME_START < datetime.datetime.now().time() < DIM_TIME_START
@@ -115,7 +115,7 @@ pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT, brightness = LED_BRIGHTNESS_DIM i
 # Read the airports file to retrieve list of airports and use as order for LEDs
 #os.path.dirname(__file__) or /home/pi/
 with open('/home/pi/airports') as f:
-	data=f.read()
+    data=f.read()
 airport_dict = json.loads(data)
 
 # Retrieve METAR from aviationweather.gov data server
@@ -134,48 +134,48 @@ stationList = []
 displayList=[]
 missingCondList=[]
 for metar in root.iter('METAR'):
-	stationId = metar.find('station_id').text
-	if metar.find('flight_category') is None:
-		print("Missing flight condition, skipping " + stationId)
-		missingCondList.append(stationId)
-		continue
-	flightCategory = metar.find('flight_category').text
-	windDir = ""
-	windSpeed = 0
-	windGustSpeed = 0
-	windGust = False
-	lightning = False
-	tempC = 0
-	dewpointC = 0
-	vis = 0
-	altimHg = 0.0
-	obs = ""
-	skyConditions = []
-	if metar.find('wind_gust_kt') is not None:
-		windGustSpeed = int(metar.find('wind_gust_kt').text)
-		windGust = (True if (ALWAYS_BLINK_FOR_GUSTS or windGustSpeed > WIND_BLINK_THRESHOLD) else False)
-	if metar.find('wind_speed_kt') is not None:
-		windSpeed = int(metar.find('wind_speed_kt').text)
-	if metar.find('wind_dir_degrees') is not None:
-		windDir = metar.find('wind_dir_degrees').text
-	if metar.find('temp_c') is not None:
-		tempC = int(round(float(metar.find('temp_c').text)))
-	if metar.find('dewpoint_c') is not None:
-		dewpointC = int(round(float(metar.find('dewpoint_c').text)))
-	if metar.find('visibility_statute_mi') is not None:
-		vis = int(round(float(metar.find('visibility_statute_mi').text)))
-	if metar.find('altim_in_hg') is not None:
-		altimHg = float(round(float(metar.find('altim_in_hg').text), 2))
-	if metar.find('wx_string') is not None:
-		obs = metar.find('wx_string').text
-	if metar.find('observation_time') is not None:
-		obsTime = datetime.datetime.fromisoformat(metar.find('observation_time').text.replace("Z","+00:00"))
-	for skyIter in metar.iter("sky_condition"):
-		skyCond = { "cover" : skyIter.get("sky_cover"), "cloudBaseFt": int(skyIter.get("cloud_base_ft_agl", default=0)) }
-		skyConditions.append(skyCond)
-	if metar.find('raw_text') is not None:
-		rawText = metar.find('raw_text').text
-		lightning = False if rawText.find('LTG') == -1 else True
+    stationId = metar.find('station_id').text
+    if metar.find('flight_category') is None:
+        print("Missing flight condition, skipping " + stationId)
+        missingCondList.append(stationId)
+        continue
+    flightCategory = metar.find('flight_category').text
+    windDir = ""
+    windSpeed = 0
+    windGustSpeed = 0
+    windGust = False
+    lightning = False
+    tempC = 0
+    dewpointC = 0
+    vis = 0
+    altimHg = 0.0
+    obs = ""
+    skyConditions = []
+    if metar.find('wind_gust_kt') is not None:
+        windGustSpeed = int(metar.find('wind_gust_kt').text)
+        windGust = (True if (ALWAYS_BLINK_FOR_GUSTS or windGustSpeed > WIND_BLINK_THRESHOLD) else False)
+    if metar.find('wind_speed_kt') is not None:
+        windSpeed = int(metar.find('wind_speed_kt').text)
+    if metar.find('wind_dir_degrees') is not None:
+        windDir = metar.find('wind_dir_degrees').text
+    if metar.find('temp_c') is not None:
+        tempC = int(round(float(metar.find('temp_c').text)))
+    if metar.find('dewpoint_c') is not None:
+        dewpointC = int(round(float(metar.find('dewpoint_c').text)))
+    if metar.find('visibility_statute_mi') is not None:
+        vis = int(round(float(metar.find('visibility_statute_mi').text)))
+    if metar.find('altim_in_hg') is not None:
+        altimHg = float(round(float(metar.find('altim_in_hg').text), 2))
+    if metar.find('wx_string') is not None:
+        obs = metar.find('wx_string').text
+    if metar.find('observation_time') is not None:
+        obsTime = datetime.datetime.fromisoformat(metar.find('observation_time').text.replace("Z","+00:00"))
+    for skyIter in metar.iter("sky_condition"):
+        skyCond = { "cover" : skyIter.get("sky_cover"), "cloudBaseFt": int(skyIter.get("cloud_base_ft_agl", default=0)) }
+        skyConditions.append(skyCond)
+    if metar.find('raw_text') is not None:
+        rawText = metar.find('raw_text').text
+        lightning = False if rawText.find('LTG') == -1 else True
 # 	print(stationId + ":"
 # 	+ flightCategory + ":"
 # 	+ str(windDir) + "@" + str(windSpeed) + ("G" + str(windGustSpeed) if windGust else "") + ":"
@@ -185,10 +185,10 @@ for metar in root.iter('METAR'):
 # 	+ str(dewpointC) + ":"
 # 	+ str(altimHg) + ":"
 # 	+ str(lightning))
-	conditionDict[stationId] = { "flightCategory" : flightCategory, "windDir": windDir, "windSpeed" : windSpeed, "windGustSpeed": windGustSpeed, "windGust": windGust, "vis": vis, "obs" : obs, "tempC" : tempC, "dewpointC" : dewpointC, "altimHg" : altimHg, "lightning": lightning, "skyConditions" : skyConditions, "obsTime": obsTime }
-	stationList.append(stationId)
-	if (airport_dict[stationId]['display']):
-		displayList.append((stationId,airport_dict[stationId]['text']))
+    conditionDict[stationId] = { "flightCategory" : flightCategory, "windDir": windDir, "windSpeed" : windSpeed, "windGustSpeed": windGustSpeed, "windGust": windGust, "vis": vis, "obs" : obs, "tempC" : tempC, "dewpointC" : dewpointC, "altimHg" : altimHg, "lightning": lightning, "skyConditions" : skyConditions, "obsTime": obsTime }
+    stationList.append(stationId)
+    if (airport_dict[stationId]['display']):
+        displayList.append((stationId,airport_dict[stationId]['text']))
 
 print("All Missing Stations:" + str(missingCondList))
 print("All Display Stations:" + str(displayList))
@@ -196,9 +196,9 @@ print("All Display Stations:" + str(displayList))
 # Start up external display output
 disp = None
 if displaymetar is not None and ACTIVATE_EXTERNAL_METAR_DISPLAY:
-	print("setting up external display")
-	disp = displaymetar.startDisplay()
-	displaymetar.clearScreen(disp)
+    print("setting up external display")
+    disp = displaymetar.startDisplay()
+    displaymetar.clearScreen(disp)
 
 # Setting LED colors based on weather conditions
 looplimit = int(round(BLINK_TOTALTIME_SECONDS / BLINK_SPEED)) if (ACTIVATE_WINDCONDITION_ANIMATION or ACTIVATE_LIGHTNING_ANIMATION or ACTIVATE_EXTERNAL_METAR_DISPLAY) else 1
@@ -208,61 +208,61 @@ displayTime = 0.0
 displayAirportCounter = 0
 numAirports = len(displayList)
 while looplimit > 0:
-	i = 0
+    i = 0
  
-	# Set light color and status for all entries in airports list
-	for airport in list(airport_dict.keys()):
-		# Skip NULL entries
-		if "NULL" in airport:
-			i += 1
-			continue
+    # Set light color and status for all entries in airports list
+    for airport in list(airport_dict.keys()):
+        # Skip NULL entries
+        if "NULL" in airport:
+            i += 1
+            continue
  
-		# print("AP:" + airport)
-		color = COLOR_CLEAR
-		conditions = conditionDict.get(airport, None)
-		windy = False
-		lightningConditions = False
-		if conditions != None:
-			windy = True if (ACTIVATE_WINDCONDITION_ANIMATION and windCycle == True and (conditions["windSpeed"] > WIND_BLINK_THRESHOLD or conditions["windGust"] == True)) else False
-			lightningConditions = True if (ACTIVATE_LIGHTNING_ANIMATION and windCycle == False and conditions["lightning"] == True) else False
-			if conditions["flightCategory"] == "VFR":
-				color = COLOR_VFR if not (windy or lightningConditions) else COLOR_LIGHTNING if lightningConditions else (COLOR_VFR_FADE if FADE_INSTEAD_OF_BLINK else COLOR_CLEAR) if windy else COLOR_CLEAR
-			elif conditions["flightCategory"] == "MVFR":
-				color = COLOR_MVFR if not (windy or lightningConditions) else COLOR_LIGHTNING if lightningConditions else (COLOR_MVFR_FADE if FADE_INSTEAD_OF_BLINK else COLOR_CLEAR) if windy else COLOR_CLEAR
-			elif conditions["flightCategory"] == "IFR":
-				color = COLOR_IFR if not (windy or lightningConditions) else COLOR_LIGHTNING if lightningConditions else (COLOR_IFR_FADE if FADE_INSTEAD_OF_BLINK else COLOR_CLEAR) if windy else COLOR_CLEAR
-			elif conditions["flightCategory"] == "LIFR":
-				color = COLOR_LIFR if not (windy or lightningConditions) else COLOR_LIGHTNING if lightningConditions else (COLOR_LIFR_FADE if FADE_INSTEAD_OF_BLINK else COLOR_CLEAR) if windy else COLOR_CLEAR
-			else:
-				color = COLOR_CLEAR
+        # print("AP:" + airport)
+        color = COLOR_CLEAR
+        conditions = conditionDict.get(airport, None)
+        windy = False
+        lightningConditions = False
+        if conditions != None:
+            windy = True if (ACTIVATE_WINDCONDITION_ANIMATION and windCycle == True and (conditions["windSpeed"] > WIND_BLINK_THRESHOLD or conditions["windGust"] == True)) else False
+            lightningConditions = True if (ACTIVATE_LIGHTNING_ANIMATION and windCycle == False and conditions["lightning"] == True) else False
+            if conditions["flightCategory"] == "VFR":
+                color = COLOR_VFR if not (windy or lightningConditions) else COLOR_LIGHTNING if lightningConditions else (COLOR_VFR_FADE if FADE_INSTEAD_OF_BLINK else COLOR_CLEAR) if windy else COLOR_CLEAR
+            elif conditions["flightCategory"] == "MVFR":
+                color = COLOR_MVFR if not (windy or lightningConditions) else COLOR_LIGHTNING if lightningConditions else (COLOR_MVFR_FADE if FADE_INSTEAD_OF_BLINK else COLOR_CLEAR) if windy else COLOR_CLEAR
+            elif conditions["flightCategory"] == "IFR":
+                color = COLOR_IFR if not (windy or lightningConditions) else COLOR_LIGHTNING if lightningConditions else (COLOR_IFR_FADE if FADE_INSTEAD_OF_BLINK else COLOR_CLEAR) if windy else COLOR_CLEAR
+            elif conditions["flightCategory"] == "LIFR":
+                color = COLOR_LIFR if not (windy or lightningConditions) else COLOR_LIGHTNING if lightningConditions else (COLOR_LIFR_FADE if FADE_INSTEAD_OF_BLINK else COLOR_CLEAR) if windy else COLOR_CLEAR
+            else:
+                color = COLOR_CLEAR
 
-		# print("Setting LED " + str(i) + " for " + airport + " to " + ("lightning " if lightningConditions else "") + ("windy " if windy else "") + (conditions["flightCategory"] if conditions != None else "None") + " " + str(color))
-		pixels[i] = color
-		i += 1
-	# Update actual LEDs all at once
-	pixels.show()
-	
+        # print("Setting LED " + str(i) + " for " + airport + " to " + ("lightning " if lightningConditions else "") + ("windy " if windy else "") + (conditions["flightCategory"] if conditions != None else "None") + " " + str(color))
+        pixels[i] = color
+        i += 1
+    # Update actual LEDs all at once
+    pixels.show()
+    
  # To get all airport codes in the displayList. I thought I needed this, but didn't. So into the magic comment garden it goes until needed:
  # for airport in [seq[0] for seq in displayList]:
  
- 
-	# Rotate through airports METAR on external display
-	if disp is not None:
-		# print(displayList[displayAirportCounter])
-		if displayTime <= DISPLAY_ROTATION_SPEED:
-			if displayTime <= DISPLAY_ROTATION_SPEED/2:
-				displaymetar.outputMetar1(disp, displayList[displayAirportCounter], conditionDict.get(displayList[displayAirportCounter][0], None))
-			else:
-				displaymetar.outputMetar2(disp, displayList[displayAirportCounter], conditionDict.get(displayList[displayAirportCounter][0], None))
-			displayTime += BLINK_SPEED
-		else:
-			displayTime = 0.0
-			displayAirportCounter = displayAirportCounter + 1 if displayAirportCounter < numAirports-1 else 0
-			
+    # Rotate through airports METAR on external display
+    if (disp is not None) and (displayList):
+        # print(displayList[displayAirportCounter])
+        if displayTime <= DISPLAY_ROTATION_SPEED:
+            if displayTime <= DISPLAY_ROTATION_SPEED/2:
+                displaymetar.outputMetar1(disp, displayList[displayAirportCounter], conditionDict.get(displayList[displayAirportCounter][0], None))
+            else:
+                displaymetar.outputMetar2(disp, displayList[displayAirportCounter], conditionDict.get(displayList[displayAirportCounter][0], None))
+            displayTime += BLINK_SPEED
+        else:
+            displayTime = 0.0
+            displayAirportCounter = displayAirportCounter + 1 if displayAirportCounter < numAirports-1 else 0
+    else:
+             displaymetar.none(disp)
 
-	# Switching between animation cycles
-	time.sleep(BLINK_SPEED)
-	windCycle = False if windCycle else True
-	looplimit -= 1
+    # Switching between animation cycles
+    time.sleep(BLINK_SPEED)
+    windCycle = False if windCycle else True
+    looplimit -= 1
 
 print("This line should never run. How'd you screw that up!?")
