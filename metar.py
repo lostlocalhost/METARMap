@@ -114,7 +114,7 @@ pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT, brightness = LED_BRIGHTNESS_DIM i
 
 # Read the airports file to retrieve list of airports and use as order for LEDs
 #os.path.dirname(__file__) or /home/pi/
-with open('/home/pi/airports') as f:
+with open('/home/pi/METARMap/airports') as f:
     data=f.read()
 airport_dict = json.loads(data)
 
@@ -196,10 +196,8 @@ print("All Display Stations:" + str(displayList))
 # Start up external display output
 disp = None
 if displaymetar is not None and ACTIVATE_EXTERNAL_METAR_DISPLAY:
-    print("setting up external display")
     disp = displaymetar.startDisplay()
     displaymetar.clearScreen(disp)
-
 # Setting LED colors based on weather conditions
 looplimit = int(round(BLINK_TOTALTIME_SECONDS / BLINK_SPEED)) if (ACTIVATE_WINDCONDITION_ANIMATION or ACTIVATE_LIGHTNING_ANIMATION or ACTIVATE_EXTERNAL_METAR_DISPLAY) else 1
 
