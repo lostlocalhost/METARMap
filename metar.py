@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import urllib.request
 import xml.etree.ElementTree as ET
 import board
@@ -8,6 +7,8 @@ import time
 import datetime
 import json
 import os
+from icecream import ic
+
 try:
     import astral
 except ImportError:
@@ -17,11 +18,23 @@ try:
 except ImportError:
     displaymetar = None
 
-# metar.py script iteration 1.4.1
+
+from argparse import ArgumentParser
+
+parser = ArgumentParser()
+parser.add_argument("-l", "--log", help="Run with icecream logging turned on",action="store_true")
+args = parser.parse_args()
+if not args.log:
+    ic.disable()
+else:
+    ic.configureOutput(prefix=str(datetime.datetime.now()) + ' -> \n')
+    ic.configureOutput(includeContext=True, contextAbsPath=False)
 
 # ---------------------------------------------------------------------------
 # ------------START OF CONFIGURATION-----------------------------------------
 # ---------------------------------------------------------------------------
+
+airports_file = '/home/pi/METARMap/airports'
 
 # NeoPixel LED Configuration
 LED_COUNT		= 50			# Number of LED pixels.
@@ -73,7 +86,7 @@ DISPLAY_ROTATION_SPEED = 6.0			# Float in seconds, e.g 2.0 for two seconds
 # ------------END OF CONFIGURATION-------------------------------------------
 # ---------------------------------------------------------------------------
 
-print("Running metar.py at " + datetime.datetime.now().strftime('%d/%m/%Y %H:%M'))
+ic("Running metar.py at " + datetime.datetime.now().strftime('%d/%m/%Y %H:%M'))
 
 # Figure out sunrise/sunset times if astral is being used
 if astral is not None and USE_SUNRISE_SUNSET:
@@ -83,9 +96,9 @@ if astral is not None and USE_SUNRISE_SUNSET:
         try:
             city = ast[LOCATION]
         except KeyError:
-            print("Error: Location not recognized, please check list of supported cities and reconfigure")
+            ic("Error: Location not recognized, please check list of supported cities and reconfigure")
         else:
-            print(city)
+            ic(city)
             sun = city.sun(date = datetime.datetime.now().date(), local = True)
             BRIGHT_TIME_START = sun['sunrise'].time()
             DIM_TIME_START = sun['sunset'].time()
@@ -96,35 +109,35 @@ if astral is not None and USE_SUNRISE_SUNSET:
         try:
             city = astral.geocoder.lookup(LOCATION, astral.geocoder.database())
         except KeyError:
-            print("Error: Location not recognized, please check list of supported cities and reconfigure")
+            ic("Error: Location not recognized, please check list of supported cities and reconfigure")
         else:
-            print(city)
+            ic(city)
             sun = astral.sun.sun(city.observer, date = datetime.datetime.now().date(), tzinfo=city.timezone)
             BRIGHT_TIME_START = sun['sunrise'].time()
             DIM_TIME_START = sun['sunset'].time()
-    print("Sunrise:" + BRIGHT_TIME_START.strftime('%H:%M') + " Sunset:" + DIM_TIME_START.strftime('%H:%M'))
+    ic("Sunrise:" + BRIGHT_TIME_START.strftime('%H:%M') + " Sunset:" + DIM_TIME_START.strftime('%H:%M'))
 
 # Initialize the LED strip
 bright = BRIGHT_TIME_START < datetime.datetime.now().time() < DIM_TIME_START
-print("Wind animation:" + str(ACTIVATE_WINDCONDITION_ANIMATION))
-print("Lightning animation:" + str(ACTIVATE_LIGHTNING_ANIMATION))
-print("Daytime Dimming:" + str(ACTIVATE_DAYTIME_DIMMING) + (" using Sunrise/Sunset" if USE_SUNRISE_SUNSET and ACTIVATE_DAYTIME_DIMMING else ""))
-print("External Display:" + str(ACTIVATE_EXTERNAL_METAR_DISPLAY))
+ic("Wind animation:" + str(ACTIVATE_WINDCONDITION_ANIMATION))
+ic("Lightning animation:" + str(ACTIVATE_LIGHTNING_ANIMATION))
+ic("Daytime Dimming:" + str(ACTIVATE_DAYTIME_DIMMING) + (" using Sunrise/Sunset" if USE_SUNRISE_SUNSET and ACTIVATE_DAYTIME_DIMMING else ""))
+ic("External Display:" + str(ACTIVATE_EXTERNAL_METAR_DISPLAY))
 pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT, brightness = LED_BRIGHTNESS_DIM if (ACTIVATE_DAYTIME_DIMMING and bright == False) else LED_BRIGHTNESS, pixel_order = LED_ORDER, auto_write = False)
 
 # Read the airports file to retrieve list of airports and use as order for LEDs
 #os.path.dirname(__file__) or /home/pi/
-with open('/home/pi/METARMap/airports') as f:
+with open(airports_file) as f:
     data=f.read()
 airport_dict = json.loads(data)
 
 # Retrieve METAR from aviationweather.gov data server
 # Details about parameters can be found here: https://www.aviationweather.gov/dataserver/example?datatype=metar
 url = "https://www.aviationweather.gov/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=xml&hoursBeforeNow=5&mostRecentForEachStation=true&stationString=" + ",".join([item for item in list(airport_dict.keys()) if "NULL" not in item])
-print(url)
+ic(url)
 req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36 Edg/86.0.622.69'})
 content = urllib.request.urlopen(req).read()
-print("Data Requested")
+ic("Data Requested")
 
 # Retrieve flying conditions from the service response and store in a dictionary for each airport
 root = ET.fromstring(content)
@@ -136,10 +149,10 @@ missingCondList=[]
 for metar in root.iter('METAR'):
     stationId = metar.find('station_id').text
     if metar.find('flight_category') is None:
-        print("Missing flight condition, skipping " + stationId)
+        ic("Missing flight condition, skipping " + stationId)
         missingCondList.append(stationId)
         continue
-    flightCategory = metar.find('flight_category').text
+    flightCategory = metar.find('flight_category').text    
     windDir = ""
     windSpeed = 0
     windGustSpeed = 0
@@ -176,7 +189,7 @@ for metar in root.iter('METAR'):
     if metar.find('raw_text') is not None:
         rawText = metar.find('raw_text').text
         lightning = False if rawText.find('LTG') == -1 else True
-# 	print(stationId + ":"
+# 	ic(stationId + ":"
 # 	+ flightCategory + ":"
 # 	+ str(windDir) + "@" + str(windSpeed) + ("G" + str(windGustSpeed) if windGust else "") + ":"
 # 	+ str(vis) + "SM:"
@@ -190,8 +203,8 @@ for metar in root.iter('METAR'):
     if (airport_dict[stationId]['display']):
         displayList.append((stationId,airport_dict[stationId]['text']))
 
-print("All Missing Stations:" + str(missingCondList))
-print("All Display Stations:" + str(displayList))
+ic("All Missing Stations:" + str(missingCondList))
+ic("All Display Stations:" + str(displayList))
 
 # Start up external display output
 disp = None
@@ -215,7 +228,7 @@ while looplimit > 0:
             i += 1
             continue
  
-        # print("AP:" + airport)
+        # ic("AP:" + airport)
         color = COLOR_CLEAR
         conditions = conditionDict.get(airport, None)
         windy = False
@@ -234,7 +247,7 @@ while looplimit > 0:
             else:
                 color = COLOR_CLEAR
 
-        # print("Setting LED " + str(i) + " for " + airport + " to " + ("lightning " if lightningConditions else "") + ("windy " if windy else "") + (conditions["flightCategory"] if conditions != None else "None") + " " + str(color))
+        # ic("Setting LED " + str(i) + " for " + airport + " to " + ("lightning " if lightningConditions else "") + ("windy " if windy else "") + (conditions["flightCategory"] if conditions != None else "None") + " " + str(color))
         pixels[i] = color
         i += 1
     # Update actual LEDs all at once
@@ -245,7 +258,7 @@ while looplimit > 0:
  
     # Rotate through airports METAR on external display
     if (disp is not None) and (displayList):
-        # print(displayList[displayAirportCounter])
+        # ic(displayList[displayAirportCounter])
         if displayTime <= DISPLAY_ROTATION_SPEED:
             if displayTime <= DISPLAY_ROTATION_SPEED/2:
                 displaymetar.outputMetar1(disp, displayList[displayAirportCounter], conditionDict.get(displayList[displayAirportCounter][0], None))
@@ -263,4 +276,4 @@ while looplimit > 0:
     windCycle = False if windCycle else True
     looplimit -= 1
 
-print("This line should never run. How'd you screw that up!?")
+ic("This line should never run. How'd you screw that up!?")

@@ -1,4 +1,12 @@
 {
-"KDAL" 	:{"LED":19,"display":true,"visits":0},
-"KAFW" 	:{"LED":19,"display":true,"visits":0}
+    "KDAL": {
+        "text": "tst1",
+        "display": true,
+        "visits": 0
+    },
+    "KAFW": {
+        "text": "tst2",
+        "display": true,
+        "visits": 0
+    }
 }

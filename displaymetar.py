@@ -10,6 +10,8 @@ try:
 except ImportError:
 	noDisplayLibraries = True
 
+
+from icecream import ic
 # This additional file is to support the functionality for an external display
 # If you only want to have the LEDs light up, then you do not need this file
 fontLarge = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf', 20)
@@ -19,9 +21,11 @@ fontXSmall = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSansMono
 padding = -3
 x = 0
 
+ic.configureOutput(includeContext=True, contextAbsPath=False)
+
 def startDisplay():
 	if noDisplayLibraries:
-		# print(noDisplayLibraries)
+		# ic(noDisplayLibraries)
 		return None
 
 	i2c = busio.I2C(SCL, SDA)
