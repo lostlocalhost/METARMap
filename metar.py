@@ -179,9 +179,9 @@ for metar in root.iter('METAR'):
     if metar.find('dewpoint_c') is not None:
         dewpointC = int(round(float(metar.find('dewpoint_c').text)))
     if metar.find('visibility_statute_mi') is not None:
-        vis_str = metar.find('visibility_statute_mi').text
-		vis_str = vis_str.replace('+', '')
-		vis = int(round(float(vis_str)))
+        vis = int(round(float(metar.find('visibility_statute_mi').text.replace('+',''))))
+        # vis_str = metar.find('visibility_statute_mi').text.replace('+', '')
+        # vis = int(round(float(metar.find('visibility_statute_mi').text)))
     if metar.find('altim_in_hg') is not None:
         altimHg = float(round(float(metar.find('altim_in_hg').text), 2))
     if metar.find('wx_string') is not None:
