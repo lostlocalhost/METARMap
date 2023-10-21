@@ -1,5 +1,7 @@
-### LLH1.5 (2020-01-01) Happy new year!
-## LLH1.6 (2023-10-6) "This is stil a thing?"
+### LLH1.61 (2023-10-21-23) 
+- Little change... Aviationweather update thier api endpoint, so thats fixed. ALong with a little structure cleanup.
+
+### LLH1.6 (2023-10-6) "This is stil a thing?"
 OK, so it's been a long while. All sorts of stuff were wrong on this, and I was running it on a Pi W Zero with a mini 2G card. For a while now I've had to reboot it every hour due to a memory issue.
 - Drive space was willing up with logs and junk. Rebuilding on another sdcard from scratch I noticed a few issues. I'm now runnig it on 64bit and Pi4B. Yea power.
 - On new install, pytz library needed it's own installation for the diusplay to work. There isnt clear messaging thats what the problem is, and it's not in the very outdated instructions below.
