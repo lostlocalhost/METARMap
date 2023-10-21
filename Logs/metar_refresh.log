@@ -1,1 +1,23 @@
-[H[2J[3J
+[H[2J[3Jrefresh.sh: Sat 21 Oct 15:12:37 CDT 2023
+2023-10-21 15:12:39.032185 -> metar.py:35 in <module>
+                              airports_file: '/home/pi/METARMap/airports'
+2023-10-21 15:12:39.032185 -> metar.py:92 in <module>
+                              "Running metar.py at " + datetime.datetime.now().strftime('%d/%m/%Y %H:%M'): 'Running metar.py at 21/10/2023 15:12'
+2023-10-21 15:12:39.032185 -> metar.py:125 in <module>
+                              "Wind animation:" + str(ACTIVATE_WINDCONDITION_ANIMATION): 'Wind animation:True'
+2023-10-21 15:12:39.032185 -> metar.py:126 in <module>
+                              "Lightning animation:" + str(ACTIVATE_LIGHTNING_ANIMATION): 'Lightning animation:False'
+2023-10-21 15:12:39.032185 -> metar.py:127 in <module>
+                              "Daytime Dimming:" + str(ACTIVATE_DAYTIME_DIMMING) + (" using Sunrise/Sunset" if USE_SUNRISE_SUNSET and ACTIVATE_DAYTIME_DIMMING else ""): 'Daytime Dimming:True using Sunrise/Sunset'
+2023-10-21 15:12:39.032185 -> metar.py:128 in <module>
+                              "External Display:" + str(ACTIVATE_EXTERNAL_METAR_DISPLAY): 'External Display:True'
+2023-10-21 15:12:39.032185 -> metar.py:142 in <module>
+                              url: 'https://aviationweather.gov/cgi-bin/data/dataserver.php?requestType=retrieve&dataSource=metars&format=xml&hoursBeforeNow=5&mostRecentForEachStation=true&stationString=KETN,KBKD,KRPH,KSPS,KF05,KDUC,K0F2,KXBP,KMWL,KGDJ,KCPT,KFWS,KJWY,KRBD,KDFW,KAFW,KDTO,KGLE,K1F0,KGYI,KDUA,KF00,KPRX,KSLR,KGVT,KF46,KTKI,KADS,KHQZ,KTRL,KJDD,KTYR,KF44,KCRS'
+2023-10-21 15:12:39.032185 -> metar.py:145 in <module>
+                              "Data Requested": 'Data Requested'
+2023-10-21 15:12:39.032185 -> metar.py:212 in <module>
+                              "All Missing Stations:" + str(missingCondList): 'All Missing Stations:[]'
+2023-10-21 15:12:39.032185 -> metar.py:213 in <module>
+                              "All Display Stations:" + str(displayList): "All Display Stations:[('KGVT', 'BASE'), ('KF46', 'HOME')]"
+refresh.sh: Sat 21 Oct 15:15:01 CDT 2023
+refresh.sh: Sat 21 Oct 15:20:02 CDT 2023

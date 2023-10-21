@@ -22,17 +22,22 @@ except ImportError:
 from argparse import ArgumentParser
 parser = ArgumentParser()
 parser.add_argument("-l", "--log", help="Run with icecream logging turned on",action="store_true")
+parser.add_argument("-t", "--test", help="Use the test airports file",action="store_true")
 if not parser.parse_args().log:
     ic.disable()
 else:
-    ic.configureOutput(prefix=str(datetime.datetime.now()) + ' -> \n')
+    ic.configureOutput(prefix=str(datetime.datetime.now()) + ' -> ')
     ic.configureOutput(includeContext=True, contextAbsPath=False)
+if not parser.parse_args().test:
+    airports_file = '/home/pi/METARMap/airports'
+else:
+    airports_file = '/home/pi/METARMap/airports_tst'
+ic(airports_file)
+
 
 # ---------------------------------------------------------------------------
 # ------------START OF CONFIGURATION-----------------------------------------
 # ---------------------------------------------------------------------------
-
-airports_file = '/home/pi/METARMap/airports'
 
 # NeoPixel LED Configuration
 LED_COUNT		= 50			# Number of LED pixels.
@@ -131,7 +136,7 @@ airport_dict = json.loads(data)
 
 # Retrieve METAR from aviationweather.gov data server
 # Details about parameters can be found here: https://www.aviationweather.gov/dataserver/example?datatype=metar
-url = "https://www.aviationweather.gov/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=xml&hoursBeforeNow=5&mostRecentForEachStation=true&stationString=" + ",".join([item for item in list(airport_dict.keys()) if "NULL" not in item])
+url = "https://aviationweather.gov/cgi-bin/data/dataserver.php?requestType=retrieve&dataSource=metars&format=xml&hoursBeforeNow=5&mostRecentForEachStation=true&stationString=" + ",".join([item for item in list(airport_dict.keys()) if "NULL" not in item])
 ic(url)
 req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36 Edg/86.0.622.69'})
 content = urllib.request.urlopen(req).read()
@@ -174,7 +179,8 @@ for metar in root.iter('METAR'):
     if metar.find('dewpoint_c') is not None:
         dewpointC = int(round(float(metar.find('dewpoint_c').text)))
     if metar.find('visibility_statute_mi') is not None:
-        vis = int(round(float(metar.find('visibility_statute_mi').text)))
+        vis = metar.find('visibility_statute_mi').text
+        # vis = int(round(float(metar.find('visibility_statute_mi').text)))
     if metar.find('altim_in_hg') is not None:
         altimHg = float(round(float(metar.find('altim_in_hg').text), 2))
     if metar.find('wx_string') is not None:
