@@ -1,3 +1,7 @@
+### LLH1.62 (2024-5-5) 
+- Had an issue with icecream logging dependency, so update six libaray in setup
+- Found that issue because None type was getting pulled for flightCategory for some reason. As a fix, I included changes to account for an unknown category.
+
 ### LLH1.61 (2023-10-21-23) 
 - Little change... Aviationweather update thier api endpoint, so thats fixed. ALong with a little structure cleanup.
 

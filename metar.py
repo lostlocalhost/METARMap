@@ -53,6 +53,8 @@ COLOR_IFR		= (0,255,0)		# Red
 COLOR_IFR_FADE		= (0,125,0)		# Red Fade for wind
 COLOR_LIFR		= (0,125,125)		# Magenta
 COLOR_LIFR_FADE		= (0,75,75)		# Magenta Fade for wind
+COLOR_UNK		= (255,255,255)		# Green
+COLOR_UNK_FADE		= (255,255,255)		# Green Fade for wind
 COLOR_CLEAR		= (0,0,0)		# Clear
 COLOR_LIGHTNING		= (255,255,255)		# White
 
@@ -247,6 +249,8 @@ while looplimit > 0:
                 color = COLOR_IFR if not (windy or lightningConditions) else COLOR_LIGHTNING if lightningConditions else (COLOR_IFR_FADE if FADE_INSTEAD_OF_BLINK else COLOR_CLEAR) if windy else COLOR_CLEAR
             elif conditions["flightCategory"] == "LIFR":
                 color = COLOR_LIFR if not (windy or lightningConditions) else COLOR_LIGHTNING if lightningConditions else (COLOR_LIFR_FADE if FADE_INSTEAD_OF_BLINK else COLOR_CLEAR) if windy else COLOR_CLEAR
+            elif conditions["flightCategory"] == None:
+                color = COLOR_UNK if not (windy or lightningConditions) else COLOR_LIGHTNING if lightningConditions else (COLOR_UNK_FADE if FADE_INSTEAD_OF_BLINK else COLOR_CLEAR) if windy else COLOR_CLEAR
             else:
                 color = COLOR_CLEAR
 
