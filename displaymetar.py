@@ -90,7 +90,7 @@ def outputMetar2(disp, station, condition):
 	bottom = height - padding
 	
 	draw2.rectangle((0, 0, width, height), outline=0, fill=0)
-	draw2.text((x, top + 0), station[0][1:] + "-" + condition["flightCategory"], font=fontLarge, fill=255) # StationID, Condition (VFR/IFR)
+	draw2.text((x, top + 0), station[0][1:] + "-" + (condition["flightCategory"] or "UNK"), font=fontLarge, fill=255) # StationID, Condition (VFR/IFR)
 	w,h = fontXSmall.getsize(str(station[1]))
 	draw2.text((width-w, top + 1), str(station[1]), font=fontXSmall, fill=255) # Custom text ("HOME", "CNTRL" etc)
 	
