@@ -22,7 +22,7 @@ sudo chmod +r airports_tst
 
 sudo apt-get update
 sudo apt-get upgrade
-sudo apt-get install python3 python3-pip i2c-tools fonts-dejavu libjpeg-dev zlib1g-dev libfreetype6-dev liblcms2-dev libopenjp2-7 libtiff5-dev -y
+sudo apt-get install python3 python3-pip i2c-tools fonts-dejavu libjpeg-dev zlib1g-dev libfreetype6-dev liblcms2-dev libopenjp2-7 libtiff5-dev python-six -y
 sudo pip3 install rpi_ws281x adafruit-circuitpython-neopixel adafruit-circuitpython-ssd1306 pillow icecream pytz
 
 echo Done
