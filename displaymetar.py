@@ -21,6 +21,15 @@ fontXSmall = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSansMono
 padding = -3
 x = 0
 
+def _text_size(font, text):
+	"""Pillow <10 used getsize; 10+ uses getbbox."""
+	try:
+		return font.getsize(text)
+	except AttributeError:
+		bbox = font.getbbox(str(text))
+		return (bbox[2] - bbox[0], bbox[3] - bbox[1])
+
+
 ic.configureOutput(includeContext=True, contextAbsPath=False)
 
 def startDisplay():
@@ -36,11 +45,15 @@ def startDisplay():
 def shutdownDisplay(disp):
 	if noDisplayLibraries:
 		return
+	if disp is None:
+		return
 
 	disp.poweroff()
 
 def clearScreen(disp):
 	if noDisplayLibraries:
+		return
+	if disp is None:
 		return
 	disp.fill(0)
 	disp.show()
@@ -48,6 +61,8 @@ def clearScreen(disp):
 
 def outputMetar1(disp, station, condition):
 	if noDisplayLibraries:
+		return
+	if disp is None or condition is None or station is None:
 		return
 
 	ic(station)
@@ -66,7 +81,7 @@ def outputMetar1(disp, station, condition):
 	central = timezone('US/Central')
  
 	draw1.text((x, top + 0), station[0][1:] + "-" + (condition["flightCategory"] or "UNK"), font=fontLarge, fill=255) # StationID, Condition (VFR/IFR)
-	w,h = fontXSmall.getsize(str(station[1])) 
+	w,h = _text_size(fontXSmall, str(station[1])) 
 	draw1.text((width-w, top + 1), str(station[1]), font=fontXSmall, fill=255) # Custom text ("HOME", "CNTRL" etc)
 	
 	draw1.text((x, top + 20), condition["windDir"] + "@" + str(condition["windSpeed"]) + (("G" + str(condition["windGustSpeed"]) if condition["windGust"] else "") + "/" +str(condition["vis"]) + "SM "), font=fontMed, fill=255)
@@ -77,6 +92,8 @@ def outputMetar1(disp, station, condition):
 	
 def outputMetar2(disp, station, condition):
 	if noDisplayLibraries:
+		return
+	if disp is None or condition is None or station is None:
 		return
 	
 	width = disp.width
@@ -91,7 +108,7 @@ def outputMetar2(disp, station, condition):
 	
 	draw2.rectangle((0, 0, width, height), outline=0, fill=0)
 	draw2.text((x, top + 0), station[0][1:] + "-" + (condition["flightCategory"] or "UNK"), font=fontLarge, fill=255) # StationID, Condition (VFR/IFR)
-	w,h = fontXSmall.getsize(str(station[1]))
+	w,h = _text_size(fontXSmall, str(station[1]))
 	draw2.text((width-w, top + 1), str(station[1]), font=fontXSmall, fill=255) # Custom text ("HOME", "CNTRL" etc)
 	
 	yOff = 18
@@ -112,6 +129,8 @@ def outputMetar2(disp, station, condition):
  
 def none(disp):
 	if noDisplayLibraries:
+		return
+	if disp is None:
 		return
 	
 	width = disp.width

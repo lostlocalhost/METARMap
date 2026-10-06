@@ -1,0 +1,10 @@
+# Install: sudo cp packaging/metarmap-logrotate /etc/logrotate.d/metarmap
+/home/pi/METARMap/Logs/*.log {
+	size 2M
+	rotate 4
+	missingok
+	notifempty
+	copytruncate
+	compress
+	delaycompress
+}
