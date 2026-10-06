@@ -31,7 +31,8 @@ while getopts 'lt' opt; do
         esac
     done
 
-# Non-blocking flock: if another refresh.sh is mid-start, exit quietly
+# Non-blocking flock: only cover kill+start. Close fd 9 before launching
+# metar.py so the long-lived process does not inherit (and hold) the lock.
 (
 flock -n 9 || {
     echo "refresh.sh: lock held by another instance, exiting at $(date)" >> "$LOG"
@@ -46,6 +47,11 @@ fi
 # Brief pause so NeoPixel DMA can release before the next init
 sleep 1
 
+# Drop the lock before starting metar — otherwise sudo/python inherits fd 9
+# and holds the lock for the whole blink window (~280s), so the next cron
+# exits and the map goes dark until the cycle after that.
+exec 9>&-
+
 if [ $log = true ] && [ $test = true ]; then
    /usr/bin/sudo /usr/bin/python3 /home/pi/METARMap/metar.py -l -t >> "$LOG" 2>&1 & echo $! > "$PIDFILE"
 elif "$log"; then
@@ -55,4 +61,5 @@ elif "$test"; then
 else
    /usr/bin/sudo /usr/bin/python3 /home/pi/METARMap/metar.py >> "$LOG" 2>&1 & echo $! > "$PIDFILE"
 fi
+echo "refresh.sh: started metar.py pid $(cat "$PIDFILE") at $(date)" >> "$LOG"
 ) 9>"$LOCK"
