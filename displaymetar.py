@@ -7,8 +7,29 @@ try:
 	from pytz import timezone
 	import pytz
 	noDisplayLibraries = False
-except ImportError:
+	importError = None
+except ImportError as e:
 	noDisplayLibraries = True
+	importError = e
+
+import sys
+import datetime
+
+_errorCount = 0
+_MAX_LOGGED_ERRORS = 5
+
+def _log(msg):
+	"""Always-on logging to stderr (refresh.sh appends it to Logs/metar_refresh.log)."""
+	print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + " displaymetar: " + msg, file=sys.stderr, flush=True)
+
+def _logError(where, e):
+	"""Log display errors, capped per run so a dead screen cannot flood the SD card."""
+	global _errorCount
+	_errorCount += 1
+	if _errorCount <= _MAX_LOGGED_ERRORS:
+		_log("ERROR in " + where + ": " + type(e).__name__ + ": " + str(e))
+	if _errorCount == _MAX_LOGGED_ERRORS:
+		_log("further display errors this run will not be logged")
 
 
 from icecream import ic
@@ -34,12 +55,16 @@ ic.configureOutput(includeContext=True, contextAbsPath=False)
 
 def startDisplay():
 	if noDisplayLibraries:
-		# ic(noDisplayLibraries)
+		_log("display libraries failed to import, screen disabled: " + str(importError))
 		return None
-
-	i2c = busio.I2C(SCL, SDA)
-	disp = adafruit_ssd1306.SSD1306_I2C(128, 64, i2c)
-	disp.poweron()
+	try:
+		i2c = busio.I2C(SCL, SDA)
+		disp = adafruit_ssd1306.SSD1306_I2C(128, 64, i2c)
+		disp.poweron()
+	except Exception as e:
+		_logError("startDisplay (I2C/SSD1306 init)", e)
+		return None
+	_log("screen started OK")
 	return disp
 	
 def shutdownDisplay(disp):
@@ -48,15 +73,21 @@ def shutdownDisplay(disp):
 	if disp is None:
 		return
 
-	disp.poweroff()
+	try:
+		disp.poweroff()
+	except Exception as e:
+		_logError("shutdownDisplay", e)
 
 def clearScreen(disp):
 	if noDisplayLibraries:
 		return
 	if disp is None:
 		return
-	disp.fill(0)
-	disp.show()
+	try:
+		disp.fill(0)
+		disp.show()
+	except Exception as e:
+		_logError("clearScreen", e)
 	
 
 def outputMetar1(disp, station, condition):
@@ -87,8 +118,11 @@ def outputMetar1(disp, station, condition):
 	draw1.text((x, top + 20), condition["windDir"] + "@" + str(condition["windSpeed"]) + (("G" + str(condition["windGustSpeed"]) if condition["windGust"] else "") + "/" +str(condition["vis"]) + "SM "), font=fontMed, fill=255)
 	draw1.text((x, top + 35), str(condition["altimHg"]) + "Hg" + " " + str(condition["tempC"]) + "/" + str(condition["dewpointC"]) + "C", font=fontMed, fill=255)
 	draw1.text((x, top + 50), condition["obsTime"].astimezone(central).strftime("%H:%MC") + " " + condition["obsTime"].strftime("%H:%MZ"), font=fontSmall, fill=255)
-	disp.image(image1)
-	disp.show()
+	try:
+		disp.image(image1)
+		disp.show()
+	except Exception as e:
+		_logError("outputMetar1", e)
 	
 def outputMetar2(disp, station, condition):
 	if noDisplayLibraries:
@@ -124,8 +158,11 @@ def outputMetar2(disp, station, condition):
 			xOff = 65
 			NewLine = True
 	draw2.text((x, yOff + 12), condition["obs"], font=fontMed, fill=255)
-	disp.image(image2)
-	disp.show()
+	try:
+		disp.image(image2)
+		disp.show()
+	except Exception as e:
+		_logError("outputMetar2", e)
  
 def none(disp):
 	if noDisplayLibraries:
@@ -145,5 +182,8 @@ def none(disp):
 	draw1.text((x, top + 20), "Check:", font=fontMed, fill=255)
 	draw1.text((x, top + 35), "internet", font=fontMed, fill=255)
 	draw1.text((x, top + 50), "airports lst", font=fontMed, fill=255)
-	disp.image(image1)
-	disp.show()
+	try:
+		disp.image(image1)
+		disp.show()
+	except Exception as e:
+		_logError("none", e)

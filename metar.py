@@ -17,8 +17,9 @@ except ImportError:
     astral = None
 try:
     import displaymetar
-except ImportError:
+except Exception as e:
     displaymetar = None
+    print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + " metar.py: displaymetar failed to import, screen disabled: " + type(e).__name__ + ": " + str(e), file=sys.stderr, flush=True)
 
 
 from argparse import ArgumentParser
@@ -259,6 +260,8 @@ try:
         disp = displaymetar.startDisplay()
         if disp is not None:
             displaymetar.clearScreen(disp)
+    print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + " metar.py: " + str(len(conditionDict)) + " METARs, "
+          + str(len(displayList)) + " display stations, screen " + ("ON" if disp is not None else "OFF"), file=sys.stderr, flush=True)
     # Setting LED colors based on weather conditions
     looplimit = int(round(BLINK_TOTALTIME_SECONDS / BLINK_SPEED)) if (ACTIVATE_WINDCONDITION_ANIMATION or ACTIVATE_LIGHTNING_ANIMATION or ACTIVATE_EXTERNAL_METAR_DISPLAY) else 1
 
