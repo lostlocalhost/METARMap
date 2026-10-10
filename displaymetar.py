@@ -60,12 +60,31 @@ def startDisplay():
 	try:
 		i2c = busio.I2C(SCL, SDA)
 		disp = adafruit_ssd1306.SSD1306_I2C(128, 64, i2c)
+		# Hard reset each run: after days of uptime the SSD1306 can ACK I2C
+		# but stop lighting the panel. Power-cycle the panel in software and
+		# resend the full init (charge pump, contrast, addressing) explicitly.
+		disp.poweroff()
+		time.sleep(0.1)
+		disp.init_display()
+		disp.contrast(255)
+		disp.invert(False)
+		disp.fill(0)
+		disp.show()
 		disp.poweron()
 	except Exception as e:
 		_logError("startDisplay (I2C/SSD1306 init)", e)
 		return None
-	_log("screen started OK")
+	_log("screen started OK (hard reset)")
 	return disp
+
+_drawCount = 0
+
+def drawCount():
+	return _drawCount
+
+def _countDraw():
+	global _drawCount
+	_drawCount += 1
 	
 def shutdownDisplay(disp):
 	if noDisplayLibraries:
@@ -121,6 +140,7 @@ def outputMetar1(disp, station, condition):
 	try:
 		disp.image(image1)
 		disp.show()
+		_countDraw()
 	except Exception as e:
 		_logError("outputMetar1", e)
 	
@@ -161,6 +181,7 @@ def outputMetar2(disp, station, condition):
 	try:
 		disp.image(image2)
 		disp.show()
+		_countDraw()
 	except Exception as e:
 		_logError("outputMetar2", e)
  
@@ -185,5 +206,6 @@ def none(disp):
 	try:
 		disp.image(image1)
 		disp.show()
+		_countDraw()
 	except Exception as e:
 		_logError("none", e)

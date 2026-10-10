@@ -336,4 +336,10 @@ try:
         looplimit -= 1
 
 finally:
+    # One heartbeat line per run: proves whether the screen was actually being drawn
+    if displaymetar is not None and ACTIVATE_EXTERNAL_METAR_DISPLAY:
+        try:
+            print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + " metar.py: run ending, " + str(displaymetar.drawCount()) + " screen draws this run", file=sys.stderr, flush=True)
+        except Exception:
+            pass
     cleanup()
