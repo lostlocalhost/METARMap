@@ -90,6 +90,8 @@ LOCATION 		= "Dallas"		# Nearby city for Sunset/Sunrise timing, refer to https:/
 # ----- External Display support -----
 ACTIVATE_EXTERNAL_METAR_DISPLAY = True		# Set to True if you want to display METAR conditions to a small external display
 DISPLAY_ROTATION_SPEED = 6.0			# Float in seconds, e.g 2.0 for two seconds
+METAR_CACHE_FILE	= "/home/pi/METARMap/last_metar.xml"	# Last good METAR response, used if an update fails
+MAX_STALE_MINUTES	= 120			# Keep showing cached data this long after updates start failing, then go dark
 
 # ---------------------------------------------------------------------------
 # ------------END OF CONFIGURATION-------------------------------------------
@@ -187,20 +189,62 @@ try:
     url = "https://aviationweather.gov/api/data/metar?format=xml&ids=" + ",".join([item for item in list(airport_dict.keys()) if "NULL" not in item])
     ic(url)
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36 Edg/86.0.622.69'})
-    try:
-        content = urllib.request.urlopen(req, timeout=30).read()
-        ic("Data Requested")
-    except Exception as e:
-        # Network hang / API failure: clear LEDs and exit cleanly (no crash loop)
-        ic("METAR fetch failed: " + str(e))
-        print("METAR fetch failed: " + str(e), file=sys.stderr)
+    # Fetch with one retry. On success, cache the response so a later failed
+    # update can keep showing the last good map instead of going dark.
+    stale = False
+    staleSince = None
+    fetchError = None
+    root = None
+    for attempt in (1, 2):
+        try:
+            content = urllib.request.urlopen(req, timeout=30).read()
+            root = ET.fromstring(content)
+            if root.find('.//METAR') is None:
+                raise ValueError("response had no METARs")
+            ic("Data Requested")
+            try:
+                tmp = METAR_CACHE_FILE + ".tmp"
+                with open(tmp, "wb") as f:
+                    f.write(content)
+                os.replace(tmp, METAR_CACHE_FILE)
+            except Exception as e:
+                print("metar.py: could not write METAR cache: " + str(e), file=sys.stderr, flush=True)
+            break
+        except Exception as e:
+            root = None
+            fetchError = e
+            print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + " METAR fetch failed (attempt " + str(attempt) + "): " + str(e), file=sys.stderr, flush=True)
+            if attempt == 1:
+                time.sleep(10)
+
+    if root is None:
+        # Fall back to the last good response if it is recent enough
+        try:
+            age = time.time() - os.path.getmtime(METAR_CACHE_FILE)
+            if age <= MAX_STALE_MINUTES * 60:
+                with open(METAR_CACHE_FILE, "rb") as f:
+                    root = ET.fromstring(f.read())
+                stale = True
+                staleSince = datetime.datetime.fromtimestamp(os.path.getmtime(METAR_CACHE_FILE))
+                print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + " metar.py: using last good data from " + staleSince.strftime('%H:%M'), file=sys.stderr, flush=True)
+            else:
+                print("metar.py: cached data is " + str(int(age // 60)) + " min old, too stale to show", file=sys.stderr, flush=True)
+        except FileNotFoundError:
+            print("metar.py: no cached METAR data to fall back on", file=sys.stderr, flush=True)
+        except Exception as e:
+            print("metar.py: could not read METAR cache: " + str(e), file=sys.stderr, flush=True)
+
+    if root is None:
+        # Nothing usable: clear LEDs, say so on the screen, and exit cleanly
         if pixels is not None:
             pixels.fill(COLOR_CLEAR)
             pixels.show()
+        if displaymetar is not None and ACTIVATE_EXTERNAL_METAR_DISPLAY:
+            disp = displaymetar.startDisplay()
+            displaymetar.outputUpdateFailed(disp, None, fetchError)
         sys.exit(1)
 
     # Retrieve flying conditions from the service response and store in a dictionary for each airport
-    root = ET.fromstring(content)
     conditionDict = { "NULL": {"flightCategory" : "", "windDir": "", "windSpeed" : 0, "windGustSpeed" :  0, "windGust" : False, "lightning": False, "tempC" : 0, "dewpointC" : 0, "vis" : 0, "altimHg" : 0, "obs" : "", "skyConditions" : {}, "obsTime" : datetime.datetime.now() } }
     conditionDict.pop("NULL")
     stationList = []
@@ -269,7 +313,7 @@ try:
         if disp is not None:
             displaymetar.clearScreen(disp)
     print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + " metar.py: " + str(len(conditionDict)) + " METARs, "
-          + str(len(displayList)) + " display stations, screen " + ("ON" if disp is not None else "OFF"), file=sys.stderr, flush=True)
+          + str(len(displayList)) + " display stations, screen " + ("ON" if disp is not None else "OFF") + (", STALE data from " + staleSince.strftime('%H:%M') if stale else ""), file=sys.stderr, flush=True)
     # Setting LED colors based on weather conditions
     looplimit = int(round(BLINK_TOTALTIME_SECONDS / BLINK_SPEED)) if (ACTIVATE_WINDCONDITION_ANIMATION or ACTIVATE_LIGHTNING_ANIMATION or ACTIVATE_EXTERNAL_METAR_DISPLAY) else 1
 
@@ -321,12 +365,16 @@ try:
         if (disp is not None) and (displayList):
             # ic(displayList[displayAirportCounter])
             cond = conditionDict.get(displayList[displayAirportCounter][0], None)
+            # When showing cached data, add an "update failed" screen after each airport
+            rotation = DISPLAY_ROTATION_SPEED * (1.5 if stale else 1.0)
             if cond is not None:
-                if displayTime <= DISPLAY_ROTATION_SPEED:
+                if displayTime <= rotation:
                     if displayTime <= DISPLAY_ROTATION_SPEED/2:
                         displaymetar.outputMetar1(disp, displayList[displayAirportCounter], cond)
-                    else:
+                    elif displayTime <= DISPLAY_ROTATION_SPEED:
                         displaymetar.outputMetar2(disp, displayList[displayAirportCounter], cond)
+                    else:
+                        displaymetar.outputUpdateFailed(disp, staleSince, fetchError)
                     displayTime += BLINK_SPEED
                 else:
                     displayTime = 0.0
@@ -336,7 +384,10 @@ try:
                 displayTime = 0.0
                 displayAirportCounter = displayAirportCounter + 1 if displayAirportCounter < numAirports-1 else 0
         elif displaymetar is not None and disp is not None:
-            displaymetar.none(disp)
+            if stale:
+                displaymetar.outputUpdateFailed(disp, staleSince, fetchError)
+            else:
+                displaymetar.none(disp)
 
         # Switching between animation cycles
         time.sleep(BLINK_SPEED)

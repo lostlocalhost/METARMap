@@ -209,3 +209,46 @@ def none(disp):
 		_countDraw()
 	except Exception as e:
 		_logError("none", e)
+
+def _shortReason(err):
+	"""Turn a fetch exception into a few words that fit the 128px screen."""
+	if err is None:
+		return ""
+	t = str(err)
+	if "name resolution" in t or "Name or service" in t:
+		return "DNS failed"
+	if "timed out" in t.lower():
+		return "timed out"
+	if "HTTP Error" in t:
+		return t.replace("HTTP Error ", "HTTP ")[:8]
+	if "Network is unreachable" in t or "No route" in t:
+		return "no network"
+	return type(err).__name__[:13]
+
+def outputUpdateFailed(disp, lastGood, err):
+	"""Screen shown when the latest METAR update failed. lastGood is the datetime
+	of the cached data still on the map, or None if nothing could be shown."""
+	if noDisplayLibraries:
+		return
+	if disp is None:
+		return
+	width = disp.width
+	height = disp.height
+	image1 = Image.new("1", (width, height))
+	draw1 = ImageDraw.Draw(image1)
+	draw1.rectangle((0, 0, width, height), outline=0, fill=0)
+	top = padding
+	draw1.text((x, top + 0), "NO UPDATE", font=fontLarge, fill=255)
+	if lastGood is not None:
+		mins = int((datetime.datetime.now() - lastGood).total_seconds() // 60)
+		draw1.text((x, top + 20), "Map from " + lastGood.strftime("%H:%M"), font=fontMed, fill=255)
+		draw1.text((x, top + 35), "(" + str(mins) + "m old)", font=fontMed, fill=255)
+	else:
+		draw1.text((x, top + 20), "No recent data", font=fontMed, fill=255)
+	draw1.text((x, top + 50), _shortReason(err), font=fontMed, fill=255)
+	try:
+		disp.image(image1)
+		disp.show()
+		_countDraw()
+	except Exception as e:
+		_logError("outputUpdateFailed", e)
