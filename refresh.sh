@@ -39,13 +39,20 @@ flock -n 9 || {
     exit 0
 }
 
-# Prefer killing by script path (survives sudo PID reuse); fall back to pidfile
-/usr/bin/sudo /usr/bin/pkill -f '/home/pi/METARMap/metar.py' >> "$LOG" 2>&1 || true
-if [ -f "$PIDFILE" ]; then
-    /usr/bin/sudo /usr/bin/pkill -F "$PIDFILE" >> "$LOG" 2>&1 || true
+# Stop the previous run with ONE SIGTERM to the python process itself (not sudo,
+# which would relay a second signal), then wait for it to actually exit so the
+# old run cannot touch the LEDs/OLED after the new one starts.
+PAT='^/usr/bin/python3 /home/pi/METARMap/metar.py'
+/usr/bin/sudo /usr/bin/pkill -TERM -f "$PAT" >> "$LOG" 2>&1 || true
+for _ in $(seq 1 20); do
+    /usr/bin/pgrep -f "$PAT" > /dev/null || break
+    sleep 1
+done
+if /usr/bin/pgrep -f "$PAT" > /dev/null; then
+    echo "refresh.sh: previous metar.py did not exit after 20s, killing at $(date)" >> "$LOG"
+    /usr/bin/sudo /usr/bin/pkill -KILL -f "$PAT" >> "$LOG" 2>&1 || true
+    sleep 1
 fi
-# Brief pause so NeoPixel DMA can release before the next init
-sleep 1
 
 # Drop the lock before starting metar — otherwise sudo/python inherits fd 9
 # and holds the lock for the whole blink window (~280s), so the next cron

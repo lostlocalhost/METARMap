@@ -136,33 +136,41 @@ ic("External Display:" + str(ACTIVATE_EXTERNAL_METAR_DISPLAY))
 pixels = None
 disp = None
 
-def cleanup(signum=None, frame=None):
-    """Release NeoPixel DMA / OLED cleanly on exit or SIGTERM (e.g. refresh.sh kill)."""
-    global pixels, disp
-    try:
-        if pixels is not None:
-            try:
-                pixels.fill(COLOR_CLEAR)
-                pixels.show()
-            except Exception:
-                pass
-            try:
-                pixels.deinit()
-            except Exception:
-                pass
-            pixels = None
-    finally:
-        if displaymetar is not None and disp is not None:
-            try:
-                displaymetar.shutdownDisplay(disp)
-            except Exception:
-                pass
-            disp = None
-    if signum is not None:
-        sys.exit(0)
+_cleanedUp = False
 
-signal.signal(signal.SIGTERM, cleanup)
-signal.signal(signal.SIGINT, cleanup)
+def cleanup():
+    """Release NeoPixel DMA once, from normal (non-signal) context only.
+
+    Deliberately does NOT touch the OLED: the next run re-initialises it, and
+    powering it off here raced with the next run's power-on (black screen).
+    """
+    global pixels, _cleanedUp
+    if _cleanedUp:
+        return
+    _cleanedUp = True
+    if pixels is not None:
+        try:
+            pixels.fill(COLOR_CLEAR)
+            pixels.show()
+        except Exception:
+            pass
+        try:
+            pixels.deinit()
+        except Exception:
+            pass
+        pixels = None
+
+def _on_signal(signum, frame):
+    """Do no I/O in the handler. Ignore repeat signals and unwind via SystemExit,
+    so any in-progress I2C/LED call releases its lock before cleanup runs in the
+    finally block. (Doing I2C here spun forever on the bus lock held by the
+    interrupted frame, re-entered on every extra SIGTERM, and hit RecursionError.)"""
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    raise SystemExit(0)
+
+signal.signal(signal.SIGTERM, _on_signal)
+signal.signal(signal.SIGINT, _on_signal)
 
 try:
     pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT, brightness = LED_BRIGHTNESS_DIM if (ACTIVATE_DAYTIME_DIMMING and bright == False) else LED_BRIGHTNESS, pixel_order = LED_ORDER, auto_write = False)
