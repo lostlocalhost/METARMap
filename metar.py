@@ -92,6 +92,7 @@ ACTIVATE_EXTERNAL_METAR_DISPLAY = True		# Set to True if you want to display MET
 DISPLAY_ROTATION_SPEED = 6.0			# Float in seconds, e.g 2.0 for two seconds
 METAR_CACHE_FILE	= "/home/pi/METARMap/last_metar.xml"	# Last good METAR response, used if an update fails
 MAX_STALE_MINUTES	= 120			# Keep showing cached data this long after updates start failing, then go dark
+ESTIMATE_MISSING_CATEGORY = True		# If a station omits visibility (blank category), estimate VFR/MVFR/IFR/LIFR from what is reported
 
 # ---------------------------------------------------------------------------
 # ------------END OF CONFIGURATION-------------------------------------------
@@ -134,6 +135,37 @@ ic("Wind animation:" + str(ACTIVATE_WINDCONDITION_ANIMATION))
 ic("Lightning animation:" + str(ACTIVATE_LIGHTNING_ANIMATION))
 ic("Daytime Dimming:" + str(ACTIVATE_DAYTIME_DIMMING) + (" using Sunrise/Sunset" if USE_SUNRISE_SUNSET and ACTIVATE_DAYTIME_DIMMING else ""))
 ic("External Display:" + str(ACTIVATE_EXTERNAL_METAR_DISPLAY))
+
+
+def estimate_flight_category(skyConditions, vertVisFt, visSM):
+    """FAA categories from ceiling (lowest BKN/OVC/OVX layer or vertical
+    visibility) and, if present, visibility. Returns None if nothing to go on."""
+    ceiling = None
+    for sc in skyConditions:
+        if sc.get("cover") in ("BKN", "OVC", "OVX") and sc.get("cloudBaseFt", 0) > 0:
+            ceiling = sc["cloudBaseFt"] if ceiling is None else min(ceiling, sc["cloudBaseFt"])
+    if vertVisFt:
+        try:
+            vv = int(vertVisFt)
+            ceiling = vv if ceiling is None else min(ceiling, vv)
+        except ValueError:
+            pass
+    if ceiling is None and not skyConditions and visSM is None:
+        return None
+    def by_ceiling(c):
+        if c is None: return "VFR"
+        if c < 500: return "LIFR"
+        if c < 1000: return "IFR"
+        if c <= 3000: return "MVFR"
+        return "VFR"
+    def by_vis(v):
+        if v is None: return "VFR"
+        if v < 1: return "LIFR"
+        if v < 3: return "IFR"
+        if v <= 5: return "MVFR"
+        return "VFR"
+    order = ["LIFR", "IFR", "MVFR", "VFR"]
+    return min(by_ceiling(ceiling), by_vis(visSM), key=order.index)
 
 pixels = None
 disp = None
@@ -260,7 +292,9 @@ try:
             ic("Missing flight condition, skipping " + stationId)
             missingCondList.append(stationId)
             continue
-        flightCategory = metar.find('flight_category').text    
+        flightCategory = metar.find('flight_category').text
+        if flightCategory is not None:
+            flightCategory = flightCategory.strip() or None
         windDir = ""
         windSpeed = 0
         windGustSpeed = 0
@@ -295,10 +329,22 @@ try:
         for skyIter in metar.iter("sky_condition"):
             skyCond = { "cover" : skyIter.get("sky_cover"), "cloudBaseFt": int(skyIter.get("cloud_base_ft_agl", default=0)) }
             skyConditions.append(skyCond)
+        # Some AUTO stations (e.g. KRPH with PWINO/$) drop visibility, so the API
+        # leaves flight_category blank. Estimate it from what we do have and mark
+        # it as estimated rather than showing the airport as unknown (white).
+        estimated = False
+        if flightCategory is None and ESTIMATE_MISSING_CATEGORY:
+            visEl = metar.find('visibility_statute_mi')
+            vvEl = metar.find('vert_vis_ft')
+            flightCategory = estimate_flight_category(
+                skyConditions,
+                vvEl.text if vvEl is not None else None,
+                vis if visEl is not None else None)
+            estimated = flightCategory is not None
         if metar.find('raw_text') is not None:
             rawText = metar.find('raw_text').text
             lightning = False if rawText.find('LTG') == -1 else True
-        conditionDict[stationId] = { "flightCategory" : flightCategory, "windDir": windDir, "windSpeed" : windSpeed, "windGustSpeed": windGustSpeed, "windGust": windGust, "vis": vis, "obs" : obs, "tempC" : tempC, "dewpointC" : dewpointC, "altimHg" : altimHg, "lightning": lightning, "skyConditions" : skyConditions, "obsTime": obsTime }
+        conditionDict[stationId] = { "flightCategory" : flightCategory, "windDir": windDir, "windSpeed" : windSpeed, "windGustSpeed": windGustSpeed, "windGust": windGust, "vis": vis, "obs" : obs, "tempC" : tempC, "dewpointC" : dewpointC, "altimHg" : altimHg, "lightning": lightning, "skyConditions" : skyConditions, "obsTime": obsTime, "estimated": estimated, "visMissing": metar.find('visibility_statute_mi') is None }
         stationList.append(stationId)
         ap = airport_dict.get(stationId)
         if ap is not None and ap.get('display'):

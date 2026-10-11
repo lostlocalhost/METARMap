@@ -130,11 +130,11 @@ def outputMetar1(disp, station, condition):
 	#draw.line([(x + 85, top + 18), (x + 85, bottom)], fill=255, width=1)
 	central = timezone('US/Central')
  
-	draw1.text((x, top + 0), station[0][1:] + "-" + (condition["flightCategory"] or "UNK"), font=fontLarge, fill=255) # StationID, Condition (VFR/IFR)
+	draw1.text((x, top + 0), station[0][1:] + "-" + (condition["flightCategory"] or "UNK") + ("*" if condition.get("estimated") else ""), font=fontLarge, fill=255) # StationID, Condition (VFR/IFR)
 	w,h = _text_size(fontXSmall, str(station[1])) 
 	draw1.text((width-w, top + 1), str(station[1]), font=fontXSmall, fill=255) # Custom text ("HOME", "CNTRL" etc)
 	
-	draw1.text((x, top + 20), condition["windDir"] + "@" + str(condition["windSpeed"]) + (("G" + str(condition["windGustSpeed"]) if condition["windGust"] else "") + "/" +str(condition["vis"]) + "SM "), font=fontMed, fill=255)
+	draw1.text((x, top + 20), condition["windDir"] + "@" + str(condition["windSpeed"]) + (("G" + str(condition["windGustSpeed"]) if condition["windGust"] else "") + "/" + ("--" if condition.get("visMissing") else str(condition["vis"])) + "SM "), font=fontMed, fill=255)
 	draw1.text((x, top + 35), str(condition["altimHg"]) + "Hg" + " " + str(condition["tempC"]) + "/" + str(condition["dewpointC"]) + "C", font=fontMed, fill=255)
 	draw1.text((x, top + 50), condition["obsTime"].astimezone(central).strftime("%H:%MC") + " " + condition["obsTime"].strftime("%H:%MZ"), font=fontSmall, fill=255)
 	try:
@@ -161,7 +161,7 @@ def outputMetar2(disp, station, condition):
 	bottom = height - padding
 	
 	draw2.rectangle((0, 0, width, height), outline=0, fill=0)
-	draw2.text((x, top + 0), station[0][1:] + "-" + (condition["flightCategory"] or "UNK"), font=fontLarge, fill=255) # StationID, Condition (VFR/IFR)
+	draw2.text((x, top + 0), station[0][1:] + "-" + (condition["flightCategory"] or "UNK") + ("*" if condition.get("estimated") else ""), font=fontLarge, fill=255) # StationID, Condition (VFR/IFR)
 	w,h = _text_size(fontXSmall, str(station[1]))
 	draw2.text((width-w, top + 1), str(station[1]), font=fontXSmall, fill=255) # Custom text ("HOME", "CNTRL" etc)
 	
