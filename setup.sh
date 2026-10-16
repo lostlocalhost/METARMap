@@ -1,7 +1,7 @@
 #!/bin/bash
 cd /home/pi/METARMap
 
-sudo mkdir Logs
+sudo mkdir -p Logs
 cd Logs
 sudo touch metar_refresh.log
 sudo touch metar_start.log
@@ -23,6 +23,12 @@ sudo chmod +r airports_tst
 sudo apt-get update
 sudo apt-get upgrade
 sudo apt-get install python3 python3-pip i2c-tools fonts-dejavu libjpeg-dev zlib1g-dev libfreetype6-dev liblcms2-dev libopenjp2-7 libtiff5-dev python-six -y
-sudo pip3 install rpi_ws281x adafruit-circuitpython-neopixel adafruit-circuitpython-ssd1306 pillow icecream pytz
+# Soft pins: pillow 9+ has getbbox; astral 2.x matches the geocoder path in metar.py
+sudo pip3 install 'rpi_ws281x>=4.3.0' 'adafruit-circuitpython-neopixel>=6.3.0' 'adafruit-circuitpython-ssd1306>=2.12.0' 'pillow>=9.0.0,<12' 'icecream>=2.1.0' 'pytz>=2022.1' 'astral>=2.2,<4'
+
+# Optional: rotate Logs/ so SD card does not fill (safe if logrotate absent)
+if [ -f packaging/metarmap-logrotate ]; then
+  sudo cp packaging/metarmap-logrotate /etc/logrotate.d/metarmap || true
+fi
 
 echo Done

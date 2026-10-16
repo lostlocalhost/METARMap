@@ -7,7 +7,10 @@ try:
 except ImportError:
     displaymetar = None
 
-pixels = neopixel.NeoPixel(board.D18, 30)
+# Keep in sync with LED_COUNT in metar.py
+LED_COUNT = 50
+
+pixels = neopixel.NeoPixel(board.D18, LED_COUNT)
 
 pixels.deinit()
 

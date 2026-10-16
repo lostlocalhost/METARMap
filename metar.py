@@ -7,6 +7,8 @@ import time
 import datetime
 import json
 import os
+import signal
+import sys
 from icecream import ic
 
 try:
@@ -15,20 +17,22 @@ except ImportError:
     astral = None
 try:
     import displaymetar
-except ImportError:
+except Exception as e:
     displaymetar = None
+    print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + " metar.py: displaymetar failed to import, screen disabled: " + type(e).__name__ + ": " + str(e), file=sys.stderr, flush=True)
 
 
 from argparse import ArgumentParser
 parser = ArgumentParser()
 parser.add_argument("-l", "--log", help="Run with icecream logging turned on",action="store_true")
 parser.add_argument("-t", "--test", help="Use the test airports file",action="store_true")
-if not parser.parse_args().log:
+args = parser.parse_args()
+if not args.log:
     ic.disable()
 else:
     ic.configureOutput(prefix=str(datetime.datetime.now()) + ' -> ')
     ic.configureOutput(includeContext=True, contextAbsPath=False)
-if not parser.parse_args().test:
+if not args.test:
     airports_file = '/home/pi/METARMap/airports'
 else:
     airports_file = '/home/pi/METARMap/airports_tst'
@@ -71,8 +75,8 @@ ALWAYS_BLINK_FOR_GUSTS	= False			# Always animate for Gusts (regardless of speed
 # Blinking Speed in seconds
 BLINK_SPEED		= 1.0			# Float in seconds, e.g. 0.5 for half a second
 # Total blinking time in seconds.
-# For example set this to 300 to keep blinking for 5 minutes if you plan to run the script every 5 minutes to fetch the updated weather
-BLINK_TOTALTIME_SECONDS	= 600
+# Keep this under the cron interval (e.g. 280 with a */5 cron) so the next refresh does not overlap
+BLINK_TOTALTIME_SECONDS	= 280		# Keep under the */5 cron interval so runs do not overlap
 
 # ----- Daytime dimming of LEDs based on time of day or Sunset/Sunrise -----
 ACTIVATE_DAYTIME_DIMMING = True		# Set to True if you want to dim the map after a certain time of day
@@ -86,6 +90,9 @@ LOCATION 		= "Dallas"		# Nearby city for Sunset/Sunrise timing, refer to https:/
 # ----- External Display support -----
 ACTIVATE_EXTERNAL_METAR_DISPLAY = True		# Set to True if you want to display METAR conditions to a small external display
 DISPLAY_ROTATION_SPEED = 6.0			# Float in seconds, e.g 2.0 for two seconds
+METAR_CACHE_FILE	= "/home/pi/METARMap/last_metar.xml"	# Last good METAR response, used if an update fails
+MAX_STALE_MINUTES	= 120			# Keep showing cached data this long after updates start failing, then go dark
+ESTIMATE_MISSING_CATEGORY = True		# If a station omits visibility (blank category), estimate VFR/MVFR/IFR/LIFR from what is reported
 
 # ---------------------------------------------------------------------------
 # ------------END OF CONFIGURATION-------------------------------------------
@@ -128,160 +135,316 @@ ic("Wind animation:" + str(ACTIVATE_WINDCONDITION_ANIMATION))
 ic("Lightning animation:" + str(ACTIVATE_LIGHTNING_ANIMATION))
 ic("Daytime Dimming:" + str(ACTIVATE_DAYTIME_DIMMING) + (" using Sunrise/Sunset" if USE_SUNRISE_SUNSET and ACTIVATE_DAYTIME_DIMMING else ""))
 ic("External Display:" + str(ACTIVATE_EXTERNAL_METAR_DISPLAY))
-pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT, brightness = LED_BRIGHTNESS_DIM if (ACTIVATE_DAYTIME_DIMMING and bright == False) else LED_BRIGHTNESS, pixel_order = LED_ORDER, auto_write = False)
 
-# Read the airports file to retrieve list of airports and use as order for LEDs
-#os.path.dirname(__file__) or /home/pi/
-with open(airports_file) as f:
-    data=f.read()
-airport_dict = json.loads(data)
 
-# Retrieve METAR from aviationweather.gov data server
-# Details about parameters can be found here: https://aviationweather.gov/data/api/#schema
-# Updated Sept2026 for new DataAPI endpoint
-url = "https://aviationweather.gov/api/data/metar?format=xml&ids=" + ",".join([item for item in list(airport_dict.keys()) if "NULL" not in item])
-ic(url)
-req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36 Edg/86.0.622.69'})
-content = urllib.request.urlopen(req).read()
-ic("Data Requested")
+def estimate_flight_category(skyConditions, vertVisFt, visSM):
+    """FAA categories from ceiling (lowest BKN/OVC/OVX layer or vertical
+    visibility) and, if present, visibility. Returns None if nothing to go on."""
+    ceiling = None
+    for sc in skyConditions:
+        if sc.get("cover") in ("BKN", "OVC", "OVX") and sc.get("cloudBaseFt", 0) > 0:
+            ceiling = sc["cloudBaseFt"] if ceiling is None else min(ceiling, sc["cloudBaseFt"])
+    if vertVisFt:
+        try:
+            vv = int(vertVisFt)
+            ceiling = vv if ceiling is None else min(ceiling, vv)
+        except ValueError:
+            pass
+    if ceiling is None and not skyConditions and visSM is None:
+        return None
+    def by_ceiling(c):
+        if c is None: return "VFR"
+        if c < 500: return "LIFR"
+        if c < 1000: return "IFR"
+        if c <= 3000: return "MVFR"
+        return "VFR"
+    def by_vis(v):
+        if v is None: return "VFR"
+        if v < 1: return "LIFR"
+        if v < 3: return "IFR"
+        if v <= 5: return "MVFR"
+        return "VFR"
+    order = ["LIFR", "IFR", "MVFR", "VFR"]
+    return min(by_ceiling(ceiling), by_vis(visSM), key=order.index)
 
-# Retrieve flying conditions from the service response and store in a dictionary for each airport
-root = ET.fromstring(content)
-conditionDict = { "NULL": {"flightCategory" : "", "windDir": "", "windSpeed" : 0, "windGustSpeed" :  0, "windGust" : False, "lightning": False, "tempC" : 0, "dewpointC" : 0, "vis" : 0, "altimHg" : 0, "obs" : "", "skyConditions" : {}, "obsTime" : datetime.datetime.now() } }
-conditionDict.pop("NULL")
-stationList = []
-displayList=[]
-missingCondList=[]
-for metar in root.iter('METAR'):
-    stationId = metar.find('station_id').text
-    if metar.find('flight_category') is None:
-        ic("Missing flight condition, skipping " + stationId)
-        missingCondList.append(stationId)
-        continue
-    flightCategory = metar.find('flight_category').text    
-    windDir = ""
-    windSpeed = 0
-    windGustSpeed = 0
-    windGust = False
-    lightning = False
-    tempC = 0
-    dewpointC = 0
-    vis = 0
-    altimHg = 0.0
-    obs = ""
-    skyConditions = []
-    if metar.find('wind_gust_kt') is not None:
-        windGustSpeed = int(metar.find('wind_gust_kt').text)
-        windGust = (True if (ALWAYS_BLINK_FOR_GUSTS or windGustSpeed > WIND_BLINK_THRESHOLD) else False)
-    if metar.find('wind_speed_kt') is not None:
-        windSpeed = int(metar.find('wind_speed_kt').text)
-    if metar.find('wind_dir_degrees') is not None:
-        windDir = metar.find('wind_dir_degrees').text
-    if metar.find('temp_c') is not None:
-        tempC = int(round(float(metar.find('temp_c').text)))
-    if metar.find('dewpoint_c') is not None:
-        dewpointC = int(round(float(metar.find('dewpoint_c').text)))
-    if metar.find('visibility_statute_mi') is not None:
-        vis = int(round(float(metar.find('visibility_statute_mi').text.replace('+',''))))
-    if metar.find('altim_in_hg') is not None:
-        altimHg = float(round(float(metar.find('altim_in_hg').text), 2))
-    if metar.find('wx_string') is not None:
-        obs = metar.find('wx_string').text
-    if metar.find('observation_time') is not None:
-        obsTime = datetime.datetime.fromisoformat(metar.find('observation_time').text.replace("Z","+00:00"))
-    for skyIter in metar.iter("sky_condition"):
-        skyCond = { "cover" : skyIter.get("sky_cover"), "cloudBaseFt": int(skyIter.get("cloud_base_ft_agl", default=0)) }
-        skyConditions.append(skyCond)
-    if metar.find('raw_text') is not None:
-        rawText = metar.find('raw_text').text
-        lightning = False if rawText.find('LTG') == -1 else True
-# 	ic(stationId + ":"
-# 	+ flightCategory + ":"
-# 	+ str(windDir) + "@" + str(windSpeed) + ("G" + str(windGustSpeed) if windGust else "") + ":"
-# 	+ str(vis) + "SM:"
-# 	+ obs + ":"
-# 	+ str(tempC) + "/"
-# 	+ str(dewpointC) + ":"
-# 	+ str(altimHg) + ":"
-# 	+ str(lightning))
-    conditionDict[stationId] = { "flightCategory" : flightCategory, "windDir": windDir, "windSpeed" : windSpeed, "windGustSpeed": windGustSpeed, "windGust": windGust, "vis": vis, "obs" : obs, "tempC" : tempC, "dewpointC" : dewpointC, "altimHg" : altimHg, "lightning": lightning, "skyConditions" : skyConditions, "obsTime": obsTime }
-    stationList.append(stationId)
-    if (airport_dict[stationId]['display']):
-        displayList.append((stationId,airport_dict[stationId]['text']))
-
-ic("All Missing Stations:" + str(missingCondList))
-ic("All Display Stations:" + str(displayList))
-
-# Start up external display output
+pixels = None
 disp = None
-if displaymetar is not None and ACTIVATE_EXTERNAL_METAR_DISPLAY:
-    disp = displaymetar.startDisplay()
-    displaymetar.clearScreen(disp)
-# Setting LED colors based on weather conditions
-looplimit = int(round(BLINK_TOTALTIME_SECONDS / BLINK_SPEED)) if (ACTIVATE_WINDCONDITION_ANIMATION or ACTIVATE_LIGHTNING_ANIMATION or ACTIVATE_EXTERNAL_METAR_DISPLAY) else 1
 
-windCycle = False
-displayTime = 0.0
-displayAirportCounter = 0
-numAirports = len(displayList)
-while looplimit > 0:
-    i = 0
- 
-    # Set light color and status for all entries in airports list
-    for airport in list(airport_dict.keys()):
-        # Skip NULL entries
-        if "NULL" in airport:
-            i += 1
+_cleanedUp = False
+
+def cleanup():
+    """Release NeoPixel DMA once, from normal (non-signal) context only.
+
+    Deliberately does NOT touch the OLED: the next run re-initialises it, and
+    powering it off here raced with the next run's power-on (black screen).
+    """
+    global pixels, _cleanedUp
+    if _cleanedUp:
+        return
+    _cleanedUp = True
+    if pixels is not None:
+        try:
+            pixels.fill(COLOR_CLEAR)
+            pixels.show()
+        except Exception:
+            pass
+        try:
+            pixels.deinit()
+        except Exception:
+            pass
+        pixels = None
+
+def _on_signal(signum, frame):
+    """Do no I/O in the handler. Ignore repeat signals and unwind via SystemExit,
+    so any in-progress I2C/LED call releases its lock before cleanup runs in the
+    finally block. (Doing I2C here spun forever on the bus lock held by the
+    interrupted frame, re-entered on every extra SIGTERM, and hit RecursionError.)"""
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    raise SystemExit(0)
+
+signal.signal(signal.SIGTERM, _on_signal)
+signal.signal(signal.SIGINT, _on_signal)
+
+try:
+    pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT, brightness = LED_BRIGHTNESS_DIM if (ACTIVATE_DAYTIME_DIMMING and bright == False) else LED_BRIGHTNESS, pixel_order = LED_ORDER, auto_write = False)
+
+    # Read the airports file to retrieve list of airports and use as order for LEDs
+    #os.path.dirname(__file__) or /home/pi/
+    with open(airports_file) as f:
+        data=f.read()
+    airport_dict = json.loads(data)
+
+    # Retrieve METAR from aviationweather.gov data server
+    # Details about parameters can be found here: https://aviationweather.gov/data/api/#schema
+    # Updated Sept2026 for new DataAPI endpoint
+    url = "https://aviationweather.gov/api/data/metar?format=xml&ids=" + ",".join([item for item in list(airport_dict.keys()) if "NULL" not in item])
+    ic(url)
+    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36 Edg/86.0.622.69'})
+    # Fetch with one retry. On success, cache the response so a later failed
+    # update can keep showing the last good map instead of going dark.
+    stale = False
+    staleSince = None
+    fetchError = None
+    root = None
+    for attempt in (1, 2):
+        try:
+            content = urllib.request.urlopen(req, timeout=30).read()
+            root = ET.fromstring(content)
+            if root.find('.//METAR') is None:
+                raise ValueError("response had no METARs")
+            ic("Data Requested")
+            try:
+                tmp = METAR_CACHE_FILE + ".tmp"
+                with open(tmp, "wb") as f:
+                    f.write(content)
+                os.replace(tmp, METAR_CACHE_FILE)
+            except Exception as e:
+                print("metar.py: could not write METAR cache: " + str(e), file=sys.stderr, flush=True)
+            break
+        except Exception as e:
+            root = None
+            fetchError = e
+            print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + " METAR fetch failed (attempt " + str(attempt) + "): " + str(e), file=sys.stderr, flush=True)
+            if attempt == 1:
+                time.sleep(10)
+
+    if root is None:
+        # Fall back to the last good response if it is recent enough
+        try:
+            age = time.time() - os.path.getmtime(METAR_CACHE_FILE)
+            if age <= MAX_STALE_MINUTES * 60:
+                with open(METAR_CACHE_FILE, "rb") as f:
+                    root = ET.fromstring(f.read())
+                stale = True
+                staleSince = datetime.datetime.fromtimestamp(os.path.getmtime(METAR_CACHE_FILE))
+                print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + " metar.py: using last good data from " + staleSince.strftime('%H:%M'), file=sys.stderr, flush=True)
+            else:
+                print("metar.py: cached data is " + str(int(age // 60)) + " min old, too stale to show", file=sys.stderr, flush=True)
+        except FileNotFoundError:
+            print("metar.py: no cached METAR data to fall back on", file=sys.stderr, flush=True)
+        except Exception as e:
+            print("metar.py: could not read METAR cache: " + str(e), file=sys.stderr, flush=True)
+
+    if root is None:
+        # Nothing usable: clear LEDs, say so on the screen, and exit cleanly
+        if pixels is not None:
+            pixels.fill(COLOR_CLEAR)
+            pixels.show()
+        if displaymetar is not None and ACTIVATE_EXTERNAL_METAR_DISPLAY:
+            disp = displaymetar.startDisplay()
+            displaymetar.outputUpdateFailed(disp, None, fetchError)
+        sys.exit(1)
+
+    # Retrieve flying conditions from the service response and store in a dictionary for each airport
+    conditionDict = { "NULL": {"flightCategory" : "", "windDir": "", "windSpeed" : 0, "windGustSpeed" :  0, "windGust" : False, "lightning": False, "tempC" : 0, "dewpointC" : 0, "vis" : 0, "altimHg" : 0, "obs" : "", "skyConditions" : {}, "obsTime" : datetime.datetime.now() } }
+    conditionDict.pop("NULL")
+    stationList = []
+    displayList=[]
+    missingCondList=[]
+    for metar in root.iter('METAR'):
+        stationIdEl = metar.find('station_id')
+        if stationIdEl is None or stationIdEl.text is None:
+            ic("Missing station id, skipping")
             continue
- 
-        # ic("AP:" + airport)
-        color = COLOR_CLEAR
-        conditions = conditionDict.get(airport, None)
-        windy = False
-        lightningConditions = False
-        if conditions != None:
-            windy = True if (ACTIVATE_WINDCONDITION_ANIMATION and windCycle == True and (conditions["windSpeed"] > WIND_BLINK_THRESHOLD or conditions["windGust"] == True)) else False
-            lightningConditions = True if (ACTIVATE_LIGHTNING_ANIMATION and windCycle == False and conditions["lightning"] == True) else False
-            if conditions["flightCategory"] == "VFR":
-                color = COLOR_VFR if not (windy or lightningConditions) else COLOR_LIGHTNING if lightningConditions else (COLOR_VFR_FADE if FADE_INSTEAD_OF_BLINK else COLOR_CLEAR) if windy else COLOR_CLEAR
-            elif conditions["flightCategory"] == "MVFR":
-                color = COLOR_MVFR if not (windy or lightningConditions) else COLOR_LIGHTNING if lightningConditions else (COLOR_MVFR_FADE if FADE_INSTEAD_OF_BLINK else COLOR_CLEAR) if windy else COLOR_CLEAR
-            elif conditions["flightCategory"] == "IFR":
-                color = COLOR_IFR if not (windy or lightningConditions) else COLOR_LIGHTNING if lightningConditions else (COLOR_IFR_FADE if FADE_INSTEAD_OF_BLINK else COLOR_CLEAR) if windy else COLOR_CLEAR
-            elif conditions["flightCategory"] == "LIFR":
-                color = COLOR_LIFR if not (windy or lightningConditions) else COLOR_LIGHTNING if lightningConditions else (COLOR_LIFR_FADE if FADE_INSTEAD_OF_BLINK else COLOR_CLEAR) if windy else COLOR_CLEAR
-            elif conditions["flightCategory"] == None:
-                color = COLOR_UNK if not (windy or lightningConditions) else COLOR_LIGHTNING if lightningConditions else (COLOR_UNK_FADE if FADE_INSTEAD_OF_BLINK else COLOR_CLEAR) if windy else COLOR_CLEAR
-            else:
-                color = COLOR_CLEAR
+        stationId = stationIdEl.text
+        if metar.find('flight_category') is None:
+            ic("Missing flight condition, skipping " + stationId)
+            missingCondList.append(stationId)
+            continue
+        flightCategory = metar.find('flight_category').text
+        if flightCategory is not None:
+            flightCategory = flightCategory.strip() or None
+        windDir = ""
+        windSpeed = 0
+        windGustSpeed = 0
+        windGust = False
+        lightning = False
+        tempC = 0
+        dewpointC = 0
+        vis = 0
+        altimHg = 0.0
+        obs = ""
+        skyConditions = []
+        obsTime = datetime.datetime.now(datetime.timezone.utc)
+        if metar.find('wind_gust_kt') is not None:
+            windGustSpeed = int(metar.find('wind_gust_kt').text)
+            windGust = (True if (ALWAYS_BLINK_FOR_GUSTS or windGustSpeed > WIND_BLINK_THRESHOLD) else False)
+        if metar.find('wind_speed_kt') is not None:
+            windSpeed = int(metar.find('wind_speed_kt').text)
+        if metar.find('wind_dir_degrees') is not None:
+            windDir = metar.find('wind_dir_degrees').text
+        if metar.find('temp_c') is not None:
+            tempC = int(round(float(metar.find('temp_c').text)))
+        if metar.find('dewpoint_c') is not None:
+            dewpointC = int(round(float(metar.find('dewpoint_c').text)))
+        if metar.find('visibility_statute_mi') is not None:
+            vis = int(round(float(metar.find('visibility_statute_mi').text.replace('+',''))))
+        if metar.find('altim_in_hg') is not None:
+            altimHg = float(round(float(metar.find('altim_in_hg').text), 2))
+        if metar.find('wx_string') is not None:
+            obs = metar.find('wx_string').text
+        if metar.find('observation_time') is not None:
+            obsTime = datetime.datetime.fromisoformat(metar.find('observation_time').text.replace("Z","+00:00"))
+        for skyIter in metar.iter("sky_condition"):
+            skyCond = { "cover" : skyIter.get("sky_cover"), "cloudBaseFt": int(skyIter.get("cloud_base_ft_agl", default=0)) }
+            skyConditions.append(skyCond)
+        # Some AUTO stations (e.g. KRPH with PWINO/$) drop visibility, so the API
+        # leaves flight_category blank. Estimate it from what we do have and mark
+        # it as estimated rather than showing the airport as unknown (white).
+        estimated = False
+        if flightCategory is None and ESTIMATE_MISSING_CATEGORY:
+            visEl = metar.find('visibility_statute_mi')
+            vvEl = metar.find('vert_vis_ft')
+            flightCategory = estimate_flight_category(
+                skyConditions,
+                vvEl.text if vvEl is not None else None,
+                vis if visEl is not None else None)
+            estimated = flightCategory is not None
+        if metar.find('raw_text') is not None:
+            rawText = metar.find('raw_text').text
+            lightning = False if rawText.find('LTG') == -1 else True
+        conditionDict[stationId] = { "flightCategory" : flightCategory, "windDir": windDir, "windSpeed" : windSpeed, "windGustSpeed": windGustSpeed, "windGust": windGust, "vis": vis, "obs" : obs, "tempC" : tempC, "dewpointC" : dewpointC, "altimHg" : altimHg, "lightning": lightning, "skyConditions" : skyConditions, "obsTime": obsTime, "estimated": estimated, "visMissing": metar.find('visibility_statute_mi') is None }
+        stationList.append(stationId)
+        ap = airport_dict.get(stationId)
+        if ap is not None and ap.get('display'):
+            displayList.append((stationId, ap.get('text', '')))
 
-        # ic("Setting LED " + str(i) + " for " + airport + " to " + ("lightning " if lightningConditions else "") + ("windy " if windy else "") + (conditions["flightCategory"] if conditions != None else "None") + " " + str(color))
-        pixels[i] = color
-        i += 1
-    # Update actual LEDs all at once
-    pixels.show()
+    ic("All Missing Stations:" + str(missingCondList))
+    ic("All Display Stations:" + str(displayList))
+
+    # Start up external display output
+    if displaymetar is not None and ACTIVATE_EXTERNAL_METAR_DISPLAY:
+        disp = displaymetar.startDisplay()
+        if disp is not None:
+            displaymetar.clearScreen(disp)
+    print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + " metar.py: " + str(len(conditionDict)) + " METARs, "
+          + str(len(displayList)) + " display stations, screen " + ("ON" if disp is not None else "OFF") + (", STALE data from " + staleSince.strftime('%H:%M') if stale else ""), file=sys.stderr, flush=True)
+    # Setting LED colors based on weather conditions
+    looplimit = int(round(BLINK_TOTALTIME_SECONDS / BLINK_SPEED)) if (ACTIVATE_WINDCONDITION_ANIMATION or ACTIVATE_LIGHTNING_ANIMATION or ACTIVATE_EXTERNAL_METAR_DISPLAY) else 1
+
+    windCycle = False
+    displayTime = 0.0
+    displayAirportCounter = 0
+    numAirports = len(displayList)
+    while looplimit > 0:
+        i = 0
+ 
+        # Set light color and status for all entries in airports list
+        for airport in list(airport_dict.keys()):
+            # Skip NULL entries
+            if "NULL" in airport:
+                i += 1
+                continue
+ 
+            # ic("AP:" + airport)
+            color = COLOR_CLEAR
+            conditions = conditionDict.get(airport, None)
+            windy = False
+            lightningConditions = False
+            if conditions != None:
+                windy = True if (ACTIVATE_WINDCONDITION_ANIMATION and windCycle == True and (conditions["windSpeed"] > WIND_BLINK_THRESHOLD or conditions["windGust"] == True)) else False
+                lightningConditions = True if (ACTIVATE_LIGHTNING_ANIMATION and windCycle == False and conditions["lightning"] == True) else False
+                if conditions["flightCategory"] == "VFR":
+                    color = COLOR_VFR if not (windy or lightningConditions) else COLOR_LIGHTNING if lightningConditions else (COLOR_VFR_FADE if FADE_INSTEAD_OF_BLINK else COLOR_CLEAR) if windy else COLOR_CLEAR
+                elif conditions["flightCategory"] == "MVFR":
+                    color = COLOR_MVFR if not (windy or lightningConditions) else COLOR_LIGHTNING if lightningConditions else (COLOR_MVFR_FADE if FADE_INSTEAD_OF_BLINK else COLOR_CLEAR) if windy else COLOR_CLEAR
+                elif conditions["flightCategory"] == "IFR":
+                    color = COLOR_IFR if not (windy or lightningConditions) else COLOR_LIGHTNING if lightningConditions else (COLOR_IFR_FADE if FADE_INSTEAD_OF_BLINK else COLOR_CLEAR) if windy else COLOR_CLEAR
+                elif conditions["flightCategory"] == "LIFR":
+                    color = COLOR_LIFR if not (windy or lightningConditions) else COLOR_LIGHTNING if lightningConditions else (COLOR_LIFR_FADE if FADE_INSTEAD_OF_BLINK else COLOR_CLEAR) if windy else COLOR_CLEAR
+                elif conditions["flightCategory"] == None:
+                    color = COLOR_UNK if not (windy or lightningConditions) else COLOR_LIGHTNING if lightningConditions else (COLOR_UNK_FADE if FADE_INSTEAD_OF_BLINK else COLOR_CLEAR) if windy else COLOR_CLEAR
+                else:
+                    color = COLOR_CLEAR
+
+            # ic("Setting LED " + str(i) + " for " + airport + " to " + ("lightning " if lightningConditions else "") + ("windy " if windy else "") + (conditions["flightCategory"] if conditions != None else "None") + " " + str(color))
+            pixels[i] = color
+            i += 1
+        # Update actual LEDs all at once
+        pixels.show()
     
- # To get all airport codes in the displayList. I thought I needed this, but didn't. So into the magic comment garden it goes until needed:
- # for airport in [seq[0] for seq in displayList]:
+     # To get all airport codes in the displayList. I thought I needed this, but didn't. So into the magic comment garden it goes until needed:
+     # for airport in [seq[0] for seq in displayList]:
  
-    # Rotate through airports METAR on external display
-    if (disp is not None) and (displayList):
-        # ic(displayList[displayAirportCounter])
-        if displayTime <= DISPLAY_ROTATION_SPEED:
-            if displayTime <= DISPLAY_ROTATION_SPEED/2:
-                displaymetar.outputMetar1(disp, displayList[displayAirportCounter], conditionDict.get(displayList[displayAirportCounter][0], None))
+        # Rotate through airports METAR on external display
+        if (disp is not None) and (displayList):
+            # ic(displayList[displayAirportCounter])
+            cond = conditionDict.get(displayList[displayAirportCounter][0], None)
+            # When showing cached data, add an "update failed" screen after each airport
+            rotation = DISPLAY_ROTATION_SPEED * (1.5 if stale else 1.0)
+            if cond is not None:
+                if displayTime <= rotation:
+                    if displayTime <= DISPLAY_ROTATION_SPEED/2:
+                        displaymetar.outputMetar1(disp, displayList[displayAirportCounter], cond)
+                    elif displayTime <= DISPLAY_ROTATION_SPEED:
+                        displaymetar.outputMetar2(disp, displayList[displayAirportCounter], cond)
+                    else:
+                        displaymetar.outputUpdateFailed(disp, staleSince, fetchError)
+                    displayTime += BLINK_SPEED
+                else:
+                    displayTime = 0.0
+                    displayAirportCounter = displayAirportCounter + 1 if displayAirportCounter < numAirports-1 else 0
             else:
-                displaymetar.outputMetar2(disp, displayList[displayAirportCounter], conditionDict.get(displayList[displayAirportCounter][0], None))
-            displayTime += BLINK_SPEED
-        else:
-            displayTime = 0.0
-            displayAirportCounter = displayAirportCounter + 1 if displayAirportCounter < numAirports-1 else 0
-    else:
-             displaymetar.none(disp)
+                # Station selected for display but no usable METAR — skip without crashing
+                displayTime = 0.0
+                displayAirportCounter = displayAirportCounter + 1 if displayAirportCounter < numAirports-1 else 0
+        elif displaymetar is not None and disp is not None:
+            if stale:
+                displaymetar.outputUpdateFailed(disp, staleSince, fetchError)
+            else:
+                displaymetar.none(disp)
 
-    # Switching between animation cycles
-    time.sleep(BLINK_SPEED)
-    windCycle = False if windCycle else True
-    looplimit -= 1
+        # Switching between animation cycles
+        time.sleep(BLINK_SPEED)
+        windCycle = False if windCycle else True
+        looplimit -= 1
 
-ic("This line should never run. How'd you screw that up!?")
+finally:
+    # One heartbeat line per run: proves whether the screen was actually being drawn
+    if displaymetar is not None and ACTIVATE_EXTERNAL_METAR_DISPLAY:
+        try:
+            print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + " metar.py: run ending, " + str(displaymetar.drawCount()) + " screen draws this run", file=sys.stderr, flush=True)
+        except Exception:
+            pass
+    cleanup()

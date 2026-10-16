@@ -7,8 +7,29 @@ try:
 	from pytz import timezone
 	import pytz
 	noDisplayLibraries = False
-except ImportError:
+	importError = None
+except ImportError as e:
 	noDisplayLibraries = True
+	importError = e
+
+import sys
+import datetime
+
+_errorCount = 0
+_MAX_LOGGED_ERRORS = 5
+
+def _log(msg):
+	"""Always-on logging to stderr (refresh.sh appends it to Logs/metar_refresh.log)."""
+	print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + " displaymetar: " + msg, file=sys.stderr, flush=True)
+
+def _logError(where, e):
+	"""Log display errors, capped per run so a dead screen cannot flood the SD card."""
+	global _errorCount
+	_errorCount += 1
+	if _errorCount <= _MAX_LOGGED_ERRORS:
+		_log("ERROR in " + where + ": " + type(e).__name__ + ": " + str(e))
+	if _errorCount == _MAX_LOGGED_ERRORS:
+		_log("further display errors this run will not be logged")
 
 
 from icecream import ic
@@ -21,33 +42,77 @@ fontXSmall = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSansMono
 padding = -3
 x = 0
 
+def _text_size(font, text):
+	"""Pillow <10 used getsize; 10+ uses getbbox."""
+	try:
+		return font.getsize(text)
+	except AttributeError:
+		bbox = font.getbbox(str(text))
+		return (bbox[2] - bbox[0], bbox[3] - bbox[1])
+
+
 ic.configureOutput(includeContext=True, contextAbsPath=False)
 
 def startDisplay():
 	if noDisplayLibraries:
-		# ic(noDisplayLibraries)
+		_log("display libraries failed to import, screen disabled: " + str(importError))
 		return None
-
-	i2c = busio.I2C(SCL, SDA)
-	disp = adafruit_ssd1306.SSD1306_I2C(128, 64, i2c)
-	disp.poweron()
+	try:
+		i2c = busio.I2C(SCL, SDA)
+		disp = adafruit_ssd1306.SSD1306_I2C(128, 64, i2c)
+		# Hard reset each run: after days of uptime the SSD1306 can ACK I2C
+		# but stop lighting the panel. Power-cycle the panel in software and
+		# resend the full init (charge pump, contrast, addressing) explicitly.
+		disp.poweroff()
+		time.sleep(0.1)
+		disp.init_display()
+		disp.contrast(255)
+		disp.invert(False)
+		disp.fill(0)
+		disp.show()
+		disp.poweron()
+	except Exception as e:
+		_logError("startDisplay (I2C/SSD1306 init)", e)
+		return None
+	_log("screen started OK (hard reset)")
 	return disp
+
+_drawCount = 0
+
+def drawCount():
+	return _drawCount
+
+def _countDraw():
+	global _drawCount
+	_drawCount += 1
 	
 def shutdownDisplay(disp):
 	if noDisplayLibraries:
 		return
+	if disp is None:
+		return
 
-	disp.poweroff()
+	try:
+		disp.poweroff()
+	except Exception as e:
+		_logError("shutdownDisplay", e)
 
 def clearScreen(disp):
 	if noDisplayLibraries:
 		return
-	disp.fill(0)
-	disp.show()
+	if disp is None:
+		return
+	try:
+		disp.fill(0)
+		disp.show()
+	except Exception as e:
+		_logError("clearScreen", e)
 	
 
 def outputMetar1(disp, station, condition):
 	if noDisplayLibraries:
+		return
+	if disp is None or condition is None or station is None:
 		return
 
 	ic(station)
@@ -65,18 +130,24 @@ def outputMetar1(disp, station, condition):
 	#draw.line([(x + 85, top + 18), (x + 85, bottom)], fill=255, width=1)
 	central = timezone('US/Central')
  
-	draw1.text((x, top + 0), station[0][1:] + "-" + (condition["flightCategory"] or "UNK"), font=fontLarge, fill=255) # StationID, Condition (VFR/IFR)
-	w,h = fontXSmall.getsize(str(station[1])) 
+	draw1.text((x, top + 0), station[0][1:] + "-" + (condition["flightCategory"] or "UNK") + ("*" if condition.get("estimated") else ""), font=fontLarge, fill=255) # StationID, Condition (VFR/IFR)
+	w,h = _text_size(fontXSmall, str(station[1])) 
 	draw1.text((width-w, top + 1), str(station[1]), font=fontXSmall, fill=255) # Custom text ("HOME", "CNTRL" etc)
 	
-	draw1.text((x, top + 20), condition["windDir"] + "@" + str(condition["windSpeed"]) + (("G" + str(condition["windGustSpeed"]) if condition["windGust"] else "") + "/" +str(condition["vis"]) + "SM "), font=fontMed, fill=255)
+	draw1.text((x, top + 20), condition["windDir"] + "@" + str(condition["windSpeed"]) + (("G" + str(condition["windGustSpeed"]) if condition["windGust"] else "") + "/" + ("--" if condition.get("visMissing") else str(condition["vis"])) + "SM "), font=fontMed, fill=255)
 	draw1.text((x, top + 35), str(condition["altimHg"]) + "Hg" + " " + str(condition["tempC"]) + "/" + str(condition["dewpointC"]) + "C", font=fontMed, fill=255)
 	draw1.text((x, top + 50), condition["obsTime"].astimezone(central).strftime("%H:%MC") + " " + condition["obsTime"].strftime("%H:%MZ"), font=fontSmall, fill=255)
-	disp.image(image1)
-	disp.show()
+	try:
+		disp.image(image1)
+		disp.show()
+		_countDraw()
+	except Exception as e:
+		_logError("outputMetar1", e)
 	
 def outputMetar2(disp, station, condition):
 	if noDisplayLibraries:
+		return
+	if disp is None or condition is None or station is None:
 		return
 	
 	width = disp.width
@@ -90,8 +161,8 @@ def outputMetar2(disp, station, condition):
 	bottom = height - padding
 	
 	draw2.rectangle((0, 0, width, height), outline=0, fill=0)
-	draw2.text((x, top + 0), station[0][1:] + "-" + (condition["flightCategory"] or "UNK"), font=fontLarge, fill=255) # StationID, Condition (VFR/IFR)
-	w,h = fontXSmall.getsize(str(station[1]))
+	draw2.text((x, top + 0), station[0][1:] + "-" + (condition["flightCategory"] or "UNK") + ("*" if condition.get("estimated") else ""), font=fontLarge, fill=255) # StationID, Condition (VFR/IFR)
+	w,h = _text_size(fontXSmall, str(station[1]))
 	draw2.text((width-w, top + 1), str(station[1]), font=fontXSmall, fill=255) # Custom text ("HOME", "CNTRL" etc)
 	
 	yOff = 18
@@ -107,11 +178,17 @@ def outputMetar2(disp, station, condition):
 			xOff = 65
 			NewLine = True
 	draw2.text((x, yOff + 12), condition["obs"], font=fontMed, fill=255)
-	disp.image(image2)
-	disp.show()
+	try:
+		disp.image(image2)
+		disp.show()
+		_countDraw()
+	except Exception as e:
+		_logError("outputMetar2", e)
  
 def none(disp):
 	if noDisplayLibraries:
+		return
+	if disp is None:
 		return
 	
 	width = disp.width
@@ -126,5 +203,52 @@ def none(disp):
 	draw1.text((x, top + 20), "Check:", font=fontMed, fill=255)
 	draw1.text((x, top + 35), "internet", font=fontMed, fill=255)
 	draw1.text((x, top + 50), "airports lst", font=fontMed, fill=255)
-	disp.image(image1)
-	disp.show()
+	try:
+		disp.image(image1)
+		disp.show()
+		_countDraw()
+	except Exception as e:
+		_logError("none", e)
+
+def _shortReason(err):
+	"""Turn a fetch exception into a few words that fit the 128px screen."""
+	if err is None:
+		return ""
+	t = str(err)
+	if "name resolution" in t or "Name or service" in t:
+		return "DNS failed"
+	if "timed out" in t.lower():
+		return "timed out"
+	if "HTTP Error" in t:
+		return t.replace("HTTP Error ", "HTTP ")[:8]
+	if "Network is unreachable" in t or "No route" in t:
+		return "no network"
+	return type(err).__name__[:13]
+
+def outputUpdateFailed(disp, lastGood, err):
+	"""Screen shown when the latest METAR update failed. lastGood is the datetime
+	of the cached data still on the map, or None if nothing could be shown."""
+	if noDisplayLibraries:
+		return
+	if disp is None:
+		return
+	width = disp.width
+	height = disp.height
+	image1 = Image.new("1", (width, height))
+	draw1 = ImageDraw.Draw(image1)
+	draw1.rectangle((0, 0, width, height), outline=0, fill=0)
+	top = padding
+	draw1.text((x, top + 0), "NO UPDATE", font=fontLarge, fill=255)
+	if lastGood is not None:
+		mins = int((datetime.datetime.now() - lastGood).total_seconds() // 60)
+		draw1.text((x, top + 20), "Map from " + lastGood.strftime("%H:%M"), font=fontMed, fill=255)
+		draw1.text((x, top + 35), "(" + str(mins) + "m old)", font=fontMed, fill=255)
+	else:
+		draw1.text((x, top + 20), "No recent data", font=fontMed, fill=255)
+	draw1.text((x, top + 50), _shortReason(err), font=fontMed, fill=255)
+	try:
+		disp.image(image1)
+		disp.show()
+		_countDraw()
+	except Exception as e:
+		_logError("outputUpdateFailed", e)
