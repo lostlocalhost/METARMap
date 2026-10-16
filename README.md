@@ -5,13 +5,13 @@ Items updated from orig:
 * The screen was cluttered, so I added a cycle within a given airport to split the info over two screens.
 *  Currently it will use half of the DISPLAY_ROTATION_SPEED to cycle. 
 * Tweaked with the display items, including adding local update time, and right justified custom text to header.
-* Separated out the light list and the display update list. I might have n LEDS I want updated, but only want see the METAR for a few.
+* Separated out the light list and the display update list. I might have n LEDs I want updated, but only want to see the METAR for a few.
 * Changed airports file to json, as I expect to be adding in more input params there in the future.
 *  If adding in Nulls for spacing, a code of NULLn where n is unique must be used
 * In cases where weather updates are not found, or no airports are selected to be displayed, a message will show in the display to check these items
 
 # METARMap
-Raspberry Pi project to visualize flight conditions on a map using WS8211 LEDs addressed via NeoPixel
+Raspberry Pi project to visualize flight conditions on a map using WS2811 LEDs addressed via NeoPixel
 
 ## Detailed instructions
 I've created detailed instructions about the setup and parts used here: https://slingtsi.rueker.com/making-a-led-powered-metar-map-for-your-wall/
@@ -30,11 +30,11 @@ I've created detailed instructions about the setup and parts used here: https://
 * Run the setup script, which does the install and permission steps for you (see [Setup script](#setup-script) below):
 	* `bash /home/pi/METARMap/setup.sh`
 	* If you'd rather install by hand, the libraries are listed in [setup.sh](setup.sh).
-* Attach WS8211 LEDs to Raspberry Pi, if you are using just a few, you can connect the directly, otherwise you may need to also attach external power to the LEDs. For my purpose with 22 powered LEDs it was fine to just connect it directly. You can find [more details about wiring here](https://learn.adafruit.com/neopixels-on-raspberry-pi/raspberry-pi-wiring).
+* Attach WS2811 LEDs to Raspberry Pi, if you are using just a few, you can connect them directly, otherwise you may need to also attach external power to the LEDs. For my purpose with 22 powered LEDs it was fine to just connect it directly. You can find [more details about wiring here](https://learn.adafruit.com/neopixels-on-raspberry-pi/raspberry-pi-wiring).
 * Test the script by running it directly (it needs to run with root permissions to access the GPIO pins):
 	* `sudo python3 metar.py`
 	* Optional flags: `-l` turns on icecream debug logging, `-t` reads **[airports_tst](airports_tst)** (a two-airport test file) instead of **[airports](airports)**. The airports paths are hard-coded to `/home/pi/METARMap/`.
-* Make appropriate changes to the **[airports](airports)** file for the airports you want to use and change the **[metar.py](metar.py)** and **[pixelsoff.py](pixelsoff.py)** script to the correct **`LED_COUNT`** (including NULLs if you have LEDS in between airports that will stay off) and **`LED_BRIGHTNESS`** if you want to change it
+* Make appropriate changes to the **[airports](airports)** file for the airports you want to use and change the **[metar.py](metar.py)** and **[pixelsoff.py](pixelsoff.py)** script to the correct **`LED_COUNT`** (including NULLs if you have LEDs in between airports that will stay off) and **`LED_BRIGHTNESS`** if you want to change it
 * **[setup.sh](setup.sh)** already makes the scripts executable (`chmod +x`) and the python files and airports files readable. If you are not using it, run `chmod +x` on **[refresh.sh](refresh.sh)**, **[lightsoff.sh](lightsoff.sh)** and **[start.sh](start.sh)**, and `chmod +r` on the python files and **[airports](airports)**.
 * To have the script start up automatically and refresh in regular intervals, use crontab and set the appropriate interval. For an example you can refer to the [crontab](crontab) file in the GitHub repo (make sure you grant the file execute permissions beforehand to the refresh.sh and lightsoff.sh file). To edit your crontab type: **`crontab -e`**, after you are done with the edits, exit out by pressing **ctrl+x** and confirm the write operation (the sample uses `/home/pi/METARMap/refresh.sh` and `/home/pi/METARMap/lightsoff.sh`)
 	* The sample crontab will run the script every 5 minutes (the */5) between the hours of 7 to 21, which includes the 21 hour, so it means it will run until 21:55
@@ -88,7 +88,7 @@ This optional functionality allows you to run the LEDs at a dimmed lower level b
 If you want to use this extra functionality, then inside the **[metar.py](metar.py)** file set the **`ACTIVATE_DAYTIME_DIMMING`** parameter to **True**.
 Set the `LED_BRIGHTNESS_DIM` setting to the level you want to run when dimmed.
 
-For time timings of the dimming there are two options:
+For the timings of the dimming there are two options:
 * Fixed time of day dimming:
 	* `BRIGHT_TIME_START` - Set this to the beginning of the day when you want to run at the normal `LED_BRIGHTNESS` level
 	* `DIM_TIME_START` - Set this to the time where you want to run at a different `LED_BRIGHTNESS_DIM` level
@@ -106,7 +106,7 @@ For this functionality to work, you will need to buy a compatible LED display an
 
 I've written up some details on the display I used and the wiring here: https://slingtsi.rueker.com/adding-a-mini-display-to-show-metar-information-to-the-metar-map/
 
-To support the display you need to enable a few new libraries and settings on the raspberry pi.
+To support the display you need to enable a few new libraries and settings on the Raspberry Pi.
 * [Enable I2C](https://learn.adafruit.com/adafruits-raspberry-pi-lesson-4-gpio-setup/configuring-i2c)
 	* `sudo raspi-config`
 	* Interface Options

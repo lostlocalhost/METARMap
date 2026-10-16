@@ -1,28 +1,28 @@
 ### LLH1.62 (2024-5-5) 
-- Had an issue with icecream logging dependency, so update six libaray in setup
+- Had an issue with icecream logging dependency, so update six library in setup
 - Found that issue because None type was getting pulled for flightCategory for some reason. As a fix, I included changes to account for an unknown category.
 
 ### LLH1.61 (2023-10-21-23) 
-- Little change... Aviationweather update thier api endpoint, so thats fixed. ALong with a little structure cleanup.
+- Little change... Aviationweather updated their api endpoint, so that's fixed. Along with a little structure cleanup.
 
-### LLH1.6 (2023-10-6) "This is stil a thing?"
+### LLH1.6 (2023-10-6) "This is still a thing?"
 OK, so it's been a long while. All sorts of stuff were wrong on this, and I was running it on a Pi W Zero with a mini 2G card. For a while now I've had to reboot it every hour due to a memory issue.
-- Drive space was willing up with logs and junk. Rebuilding on another sdcard from scratch I noticed a few issues. I'm now runnig it on 64bit and Pi4B. Yea power.
-- On new install, pytz library needed it's own installation for the diusplay to work. There isnt clear messaging thats what the problem is, and it's not in the very outdated instructions below.
+- Drive space was filling up with logs and junk. Rebuilding on another sdcard from scratch I noticed a few issues. I'm now running it on 64bit and Pi4B. Yeah, power.
+- On new install, pytz library needed its own installation for the display to work. There isn't clear messaging that's what the problem is, and it's not in the very outdated instructions below.
 - Font library ttf-dejavu changed name to fonts-dejavu
 - liblcms1-dev is not found, however liblcms2-dev installs. Unsure exact impact.
 
 ### LLH1.5 (2020-01-01) Happy new year!
-- Finished build for first METARMap. (yea)
+- Finished build for first METARMap. (yeah)
 - Updated all config to initial personal needs for board.
 - Added images of build.
 
 ### LLH1.4.3 (2020-12-30)
 - Updated input file to json.
-- Also finished the update for the 2 cycles of screen info. Includes custom text to display right justified on header line. This should be limited to 4 chars in the 'text' parm in the airports input file.
+- Also finished the update for the 2 cycles of screen info. Includes custom text to display right justified on header line. This should be limited to 4 chars in the 'text' param in the airports input file.
 
 ### LLH1.4.2 (2020-12-28)
-- Added two cycles to each iaco. It will use half the DISPLAY_ROTATION_SPEED to cycle to the second screen.
+- Added two cycles to each ICAO. It will use half the DISPLAY_ROTATION_SPEED to cycle to the second screen.
 - Updated some of the values, including local time along with Zulu
 - Split out the light list and the display list to be able to control what places get displayed.
 
@@ -44,7 +44,7 @@ OK, so it's been a long while. All sorts of stuff were wrong on this, and I was 
 
 ### 1.2.3 (2020-11-19)
 - Aviationweather.gov has stopped accepting the default user agent for urllib
-- - Explicitly Setting it to standard web browser compatible user agent
+- - Explicitly setting it to standard web browser compatible user agent
 
 ### 1.2.2 (2020-06-11)
 - Small fix to ensure correct variable scoping
