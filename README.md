@@ -26,22 +26,36 @@ I've created detailed instructions about the setup and parts used here: https://
 * Update packages 
 	* `sudo apt-get update`
 	* `sudo apt-get upgrade`
-* Copy the **[metar.py](metar.py)**, **[pixelsoff.py](pixelsoff.py)**, **[airports](airports)**, **[refresh.sh](refresh.sh)** and **[lightsoff.sh](lightsoff.sh)** scripts into the pi home directory (/home/pi)
-* Install python3 and pip3 if not already installed
-	* `sudo apt-get install python3`
-	* `sudo apt-get install python3-pip`
-* Install required python libraries for the project
-	* [Neopixel](https://learn.adafruit.com/neopixels-on-raspberry-pi/python-usage): `sudo pip3 install rpi_ws281x adafruit-circuitpython-neopixel`
+* Get the project onto the Pi at **/home/pi/METARMap** (for example `git clone https://github.com/lostlocalhost/METARMap /home/pi/METARMap`). The scripts use that path as a hard-coded location. Note that **`metar.py`** also expects `last_metar.xml` there (`METAR_CACHE_FILE`).
+* Run the setup script, which does the install and permission steps for you (see [Setup script](#setup-script) below):
+	* `bash /home/pi/METARMap/setup.sh`
+	* If you'd rather install by hand, the libraries are listed in [setup.sh](setup.sh).
 * Attach WS8211 LEDs to Raspberry Pi, if you are using just a few, you can connect the directly, otherwise you may need to also attach external power to the LEDs. For my purpose with 22 powered LEDs it was fine to just connect it directly. You can find [more details about wiring here](https://learn.adafruit.com/neopixels-on-raspberry-pi/raspberry-pi-wiring).
 * Test the script by running it directly (it needs to run with root permissions to access the GPIO pins):
 	* `sudo python3 metar.py`
 * Make appropriate changes to the **[airports](airports)** file for the airports you want to use and change the **[metar.py](metar.py)** and **[pixelsoff.py](pixelsoff.py)** script to the correct **`LED_COUNT`** (including NULLs if you have LEDS in between airports that will stay off) and **`LED_BRIGHTNESS`** if you want to change it
-* To run the script automatically when you power the Raspberry Pi, you will need to grant permissions to execute the **[refresh.sh](refresh.sh)** and **[lightsoff.sh](lightsoff.sh)** script and read permissions to the **[airports](airports)**, **[metar.py](metar.py)** and **[pixelsoff.py](pixelsoff.py)** script using chmod:
-	* `chmod +x filename` will grant execute permissions
-	* `chmod +r filename` will grant write permissions
-* To have the script start up automatically and refresh in regular intervals, use crontab and set the appropriate interval. For an example you can refer to the [crontab](crontab) file in the GitHub repo (make sure you grant the file execute permissions beforehand to the refresh.sh and lightsoff.sh file). To edit your crontab type: **`crontab -e`**, after you are done with the edits, exit out by pressing **ctrl+x** and confirm the write operation
+* **[setup.sh](setup.sh)** already makes the scripts executable (`chmod +x`) and the python files and airports files readable. If you are not using it, run `chmod +x` on **[refresh.sh](refresh.sh)**, **[lightsoff.sh](lightsoff.sh)** and **[start.sh](start.sh)**, and `chmod +r` on the python files and **[airports](airports)**.
+* To have the script start up automatically and refresh in regular intervals, use crontab and set the appropriate interval. For an example you can refer to the [crontab](crontab) file in the GitHub repo (make sure you grant the file execute permissions beforehand to the refresh.sh and lightsoff.sh file). To edit your crontab type: **`crontab -e`**, after you are done with the edits, exit out by pressing **ctrl+x** and confirm the write operation (the sample uses `/home/pi/refresh.sh` and `/home/pi/lightsoff.sh`; if you run from `/home/pi/METARMap`, point the cron lines at `/home/pi/METARMap/refresh.sh` and `/home/pi/METARMap/lightsoff.sh`)
 	* The sample crontab will run the script every 5 minutes (the */5) between the hours of 7 to 21, which includes the 21 hour, so it means it will run until 21:55
 	* Then at 22:05 it will run the lightsoff.sh script, which will turn all the lights off
+
+### Setup script
+[setup.sh](setup.sh) takes no flags and must be run from a checkout at `/home/pi/METARMap`. It uses `sudo` and does the following:
+* Creates `Logs/` and the `metar_refresh.log` and `metar_start.log` files (mode 777)
+* Makes `refresh.sh`, `lightsoff.sh` and `start.sh` executable and sets read permission on the python files and airports files
+* Runs `apt-get update` and `apt-get upgrade`, then installs the apt packages (python3, pip, i2c-tools, fonts, image libraries)
+* Installs the pip packages with minimum versions (rpi_ws281x, neopixel, ssd1306, pillow, icecream, pytz, astral)
+* Copies [packaging/metarmap-logrotate](packaging/metarmap-logrotate) to `/etc/logrotate.d/metarmap` if the file exists (a failed copy is ignored)
+
+### How refresh.sh works
+[refresh.sh](refresh.sh) is what cron runs. It accepts `-l` (run `metar.py` with logging) and `-t` (run `metar.py` in test mode), and logs to `Logs/metar_refresh.log`.
+* **Lock:** it takes a non-blocking `flock` on `metar.refresh.lock` while it stops the previous run and starts the new one. If another `refresh.sh` holds the lock, it logs "lock held" and exits. The lock is released before `metar.py` is started, so the long-running `metar.py` does not hold it.
+* **Restart:** it sends one SIGTERM to the previous `metar.py` python process, waits up to 20 seconds for it to exit, and sends SIGKILL if it is still running. The new run's PID is written to `metarpid.pid`.
+* **Timeouts:** `metar.py` fetches METAR data with a 30 second timeout and retries once after 10 seconds. `BLINK_TOTALTIME_SECONDS` defaults to 280 so a run ends before the next */5 cron run.
+* **Stale data:** each good response is cached in `last_metar.xml`. If an update fails, the cache is used for up to `MAX_STALE_MINUTES` (120) and a "NO UPDATE" screen is added to the display. After that, or with no cache, the LEDs are cleared.
+
+### Log rotation
+`refresh.sh` and `start.sh` trim their logs to the last ~2 MiB and ~1 MiB when they grow past that. In addition, [packaging/metarmap-logrotate](packaging/metarmap-logrotate) rotates `/home/pi/METARMap/Logs/*.log` at 2 MB, keeps 4 compressed copies (`copytruncate`). `setup.sh` installs it; to install it by hand: `sudo cp packaging/metarmap-logrotate /etc/logrotate.d/metarmap`.
 
 ## Additional Wind condition blinking/fading functionality
 I recently expanded the script to also take wind condition into account and if the wind exceeds a certain threshold, or if it is gusting, make the LED for that airport either blink on/off or to fade between  two shades of the current flight category color.
@@ -52,7 +66,7 @@ If you want to use this extra functionality, then inside the **[metar.py](metar.
 	* `WIND_BLINK_THRESHOLD` - in Knots for normal wind speeds currently at the airport
 	* `ALWAYS_BLINK_FOR_GUSTS` - If you always want the blinking/fading to happen for gusts, regardless of the wind speed
 	* `BLINKS_SPEED` - How fast the blinking happens, I found 1 second to be a happy medium so it's not too busy, but you can also make it faster, for example every half a second by using 0.5
-	* `BLINK_TOTALTIME_SECONDS` = How long do you want the script to run. I have this set to 300 seconds as I have my crontab setup to re-run the script every 5 minutes to get the latest weather information
+	* `BLINK_TOTALTIME_SECONDS` = How long do you want the script to run. The default is 280 seconds, which must stay under the cron interval (5 minutes) so runs do not overlap
 	
 ## Additional Lightning in the vicinity blinking functionality
 After the recent addition for wind condition animation, I got another request from someone if I could add a white blinking animation to represent lightning in the area.
@@ -61,7 +75,7 @@ Please note that due to the nature of the METAR system, this means that the META
 If you want to use this extra functionality, then inside the **[metar.py](metar.py)** file set the **`ACTIVATE_LIGHTNING_ANIMATION`** parameter to **True**.
 * This shares two configuration parameters together with the wind animation that you can modify as you like:
 	* `BLINKS_SPEED` - How fast the blinking happens, I found 1 second to be a happy medium so it's not too busy, but you can also make it faster, for example every half a second by using 0.5
-	* `BLINK_TOTALTIME_SECONDS` = How long do you want the script to run. I have this set to 300 seconds as I have my crontab setup to re-run the script every 5 minutes to get the latest weather information
+	* `BLINK_TOTALTIME_SECONDS` = How long do you want the script to run. The default is 280 seconds, which must stay under the cron interval (5 minutes) so runs do not overlap
 	
 ## Additional LED dimming functionality based on time of day
 This optional functionality allows you to run the LEDs at a dimmed lower level between a certain time of the day.
@@ -109,6 +123,7 @@ To support the display you need to enable a few new libraries and settings on th
 	* `sudo apt-get install libtiff5 -y`
 * copy new file **[displaymetar.py](displaymetar.py)** into the same folder as **[metar.py](metar.py)**
 * Use the latest version of **[metar.py](metar.py)** and **[pixelsoff.py](pixelsoff.py)** for the new functionality
+* The display is re-initialised on every run, and display errors are written to the log (even without `-l`)
 * Configure **[metar.py](metar.py)** and set **`ACTIVATE_EXTERNAL_METAR_DISPLAY`** parameter to **True**.
 * Configure the `DISPLAY_ROTATION_SPEED` to your desired timing, I'm using 5 seconds for mine.
 
