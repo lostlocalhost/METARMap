@@ -1,1 +1,6 @@
-/Logslast_metar.xml*
+/Logs
+last_metar.xml*
+metar.refresh.lock
+metarpid.pid
+offpid.pid
+__pycache__/
